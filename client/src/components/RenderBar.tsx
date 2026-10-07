@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Film, Download, CheckCircle, RefreshCw, Terminal, ChevronDown, ChevronUp } from 'lucide-react';
+import { API_BASE } from '../services/api';
 
 interface RenderBarProps {
   projectId: string;
@@ -71,7 +72,7 @@ export const RenderBar: React.FC<RenderBarProps> = ({
 
           {hasRenderedVideo && (
             <a
-              href={`/api/projects/${projectId}/download`}
+              href={`${API_BASE}/${projectId}/download`}
               download
               className="py-3.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm tracking-wide uppercase active:scale-95 transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2"
             >

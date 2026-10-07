@@ -85,9 +85,8 @@ async def run_opencode_generation(project_dir: Path, project_id: str, scene_idx:
         "message": f"Starting OpenCode generation for scene #{scene_idx}..."
     })
 
-    # Prepare command: we run opencode run with the message
-    # If opencode executable exists, call it. If fallback or dry mode needed, handled gracefully.
-    cmd = [OPENCODE_BIN, "run", full_prompt]
+    # Prepare command: we run opencode run with the message and --auto to approve file write
+    cmd = [OPENCODE_BIN, "run", "--auto", full_prompt]
 
     process = None
     try:

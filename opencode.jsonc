@@ -1,31 +1,28 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "name": "math-visual-generator",
-  "version": "1.0.0",
   "default_agent": "visual_coder",
   "agents": {
     "visual_coder": {
-      "model": "anthropic/claude-3-7-sonnet",
+      "model": "deepseek/deepseek-chat",
       "temperature": 0.2,
-      "system_prompt": "You are a master Creative Technologist and Visual Mathematics Animator specialized in producing standalone HTML5 animations (Canvas 2D / WebGL / SVG / CSS / Tailwind). Always generate self-contained, high-performance, responsive 1080p canvas/CSS animations designed for pedagocical math and visual logic videos. Strictly avoid user interactions, loops after the specified duration, and external asset dependencies other than standard CDN Tailwind and fonts.",
+      "prompt": "You are a master Creative Technologist and Visual Mathematics Animator specialized in producing standalone HTML5 animations (Canvas 2D / WebGL / SVG / CSS / Tailwind). Always generate self-contained, high-performance, responsive 1080p canvas/CSS animations designed for pedagogical math and visual logic videos. Strictly avoid user interactions, loops after the specified duration, and external asset dependencies other than standard CDN Tailwind and fonts.",
       "tools": {
-        "read_file": true,
-        "write_file": true,
-        "run_shell": true
+        "read": true,
+        "write": true,
+        "edit": true,
+        "bash": true
       }
     },
     "refactor_agent": {
-      "model": "anthropic/claude-3-7-sonnet",
+      "model": "deepseek/deepseek-chat",
       "temperature": 0.1,
-      "system_prompt": "You are a specialized code refactoring agent. Given an existing scene HTML and user refinement instructions, inspect the current code and apply precise, surgically clean visual/timing modifications preserving the canvas resolution and freeze-frame behavior.",
+      "prompt": "You are a specialized code refactoring agent. Given an existing scene HTML and user refinement instructions, inspect the current code and apply precise, surgically clean visual/timing modifications preserving the canvas resolution and freeze-frame behavior.",
       "tools": {
-        "read_file": true,
-        "write_file": true
+        "read": true,
+        "write": true,
+        "edit": true
       }
     }
-  },
-  "permissions": {
-    "allow_file_write": ["projects/**/scenes/*.html"],
-    "allow_file_read": ["projects/**"]
   }
 }

@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Play, Pause, RotateCcw, Volume2, Sparkles, Scissors } from 'lucide-react';
+import { API_BASE } from '../services/api';
 
 interface AudioTimelineProps {
   projectId: string;
@@ -75,7 +76,7 @@ export const AudioTimeline: React.FC<AudioTimelineProps> = ({
 
   return (
     <div className="flex flex-col bg-surface border border-border/80 rounded-2xl p-4 shadow-xl">
-      <audio ref={audioRef} src={`/api/projects/${projectId}/audio`} preload="auto" />
+      <audio ref={audioRef} src={`${API_BASE}/${projectId}/audio`} preload="auto" />
 
       {/* Top Playback Controls & Time Display */}
       <div className="flex items-center justify-between mb-3">

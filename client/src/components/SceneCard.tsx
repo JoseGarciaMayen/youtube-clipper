@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Mic, MicOff, Sparkles, RefreshCw, Eye, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
 import { SceneItem } from '../types';
+import { API_BASE } from '../services/api';
 
 interface SceneCardProps {
   scene: SceneItem;
@@ -160,7 +161,7 @@ export const SceneCard: React.FC<SceneCardProps> = ({
         <div className="mt-2 flex flex-col gap-2">
           <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-border bg-black shadow-inner">
             <iframe
-              src={`/api/projects/${projectId}/scenes/${scene.index}/preview?t=${Date.now()}`}
+              src={`${API_BASE}/${projectId}/scenes/${scene.index}/preview?t=${Date.now()}`}
               title={`Preview Scene ${scene.index}`}
               className="w-full h-full border-0"
               sandbox="allow-scripts allow-same-origin"
