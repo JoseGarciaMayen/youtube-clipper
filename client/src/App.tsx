@@ -4,6 +4,7 @@ import { AudioTimeline } from './components/AudioTimeline';
 import { SceneCard } from './components/SceneCard';
 import { EditSceneModal } from './components/EditSceneModal';
 import { RenderBar } from './components/RenderBar';
+import { TerminalPanel } from './components/TerminalPanel';
 import { fetchProject, updateTimeline, generateScene, triggerRender } from './services/api';
 import { SceneItem, WebSocketEvent } from './types';
 import { Sparkles, Layers, Sliders, Eye } from 'lucide-react';
@@ -29,6 +30,7 @@ export const App: React.FC = () => {
   const [renderProgress, setRenderProgress] = useState(0);
   const [renderStatusMessage, setRenderStatusMessage] = useState('');
   const [logs, setLogs] = useState<string[]>([]);
+  const [showTerminal, setShowTerminal] = useState(false);
 
   // WebSocket connection for real-time logs & render updates
   useEffect(() => {
@@ -463,6 +465,15 @@ export const App: React.FC = () => {
               </div>
             )}
           </div>
+
+          {/* Large Desktop Embedded Terminal */}
+          <TerminalPanel
+            logs={logs}
+            onClearLogs={() => setLogs([])}
+            isOpen={true}
+            onToggleOpen={() => {}}
+            isDesktopEmbedded={true}
+          />
         </div>
       </div>
 
@@ -479,6 +490,17 @@ export const App: React.FC = () => {
         />
       )}
 
+      {/* Mobile Floating Terminal Panel */}
+      <div className="lg:hidden fixed bottom-16 left-3 right-3 z-50">
+        <TerminalPanel
+          logs={logs}
+          onClearLogs={() => setLogs([])}
+          isOpen={showTerminal}
+          onToggleOpen={() => setShowTerminal(false)}
+          isDesktopEmbedded={false}
+        />
+      </div>
+
       {/* Bottom Render Bar */}
       <RenderBar
         projectId={projectId}
@@ -486,7 +508,8 @@ export const App: React.FC = () => {
         renderProgress={renderProgress}
         renderStatusMessage={renderStatusMessage}
         hasRenderedVideo={hasRenderedVideo}
-        logs={logs}
+        showTerminal={showTerminal}
+        onToggleTerminal={() => setShowTerminal(!showTerminal)}
         onStartRender={handleStartRender}
       />
     </div>

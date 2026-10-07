@@ -4,7 +4,7 @@
   "default_agent": "visual_coder",
   "agents": {
     "visual_coder": {
-      "model": "deepseek/deepseek-chat",
+      "model": "deepseek/deepseek-flash",
       "temperature": 0.2,
       "prompt": "You are a master Creative Technologist and Visual Mathematics Animator specialized in producing standalone HTML5 animations (Canvas 2D / WebGL / SVG / CSS / Tailwind). Always generate self-contained, high-performance, responsive 1080p canvas/CSS animations designed for pedagogical math and visual logic videos. Strictly avoid user interactions, loops after the specified duration, and external asset dependencies other than standard CDN Tailwind and fonts.",
       "tools": {
@@ -15,7 +15,7 @@
       }
     },
     "refactor_agent": {
-      "model": "deepseek/deepseek-chat",
+      "model": "deepseek/deepseek-flash",
       "temperature": 0.1,
       "prompt": "You are a specialized code refactoring agent. Given an existing scene HTML and user refinement instructions, inspect the current code and apply precise, surgically clean visual/timing modifications preserving the canvas resolution and freeze-frame behavior.",
       "tools": {

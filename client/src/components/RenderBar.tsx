@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Film, Download, RefreshCw, Terminal } from 'lucide-react';
 import { API_BASE } from '../services/api';
 
@@ -8,7 +8,8 @@ interface RenderBarProps {
   renderProgress: number;
   renderStatusMessage: string;
   hasRenderedVideo: boolean;
-  logs: string[];
+  showTerminal: boolean;
+  onToggleTerminal: () => void;
   onStartRender: () => void;
 }
 
@@ -18,14 +19,13 @@ export const RenderBar: React.FC<RenderBarProps> = ({
   renderProgress,
   renderStatusMessage,
   hasRenderedVideo,
-  logs,
+  showTerminal,
+  onToggleTerminal,
   onStartRender,
 }) => {
-  const [showLogs, setShowLogs] = useState(false);
-
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-[#090a0f]/95 backdrop-blur-md border-t border-[#1f242d] p-3 z-40">
-      <div className="max-w-lg mx-auto flex flex-col gap-2">
+      <div className="max-w-7xl mx-auto flex flex-col gap-2">
         {/* Progress status */}
         {isRendering && (
           <div className="flex flex-col gap-1">
@@ -43,11 +43,15 @@ export const RenderBar: React.FC<RenderBarProps> = ({
         )}
 
         {/* Buttons row */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 max-w-xl mx-auto w-full">
           <button
-            onClick={() => setShowLogs(!showLogs)}
-            className="p-2.5 rounded-xl bg-[#12141a] border border-[#1f242d] text-neutral-400 hover:text-blue-400 active:scale-95 transition-all"
-            title="Terminal logs"
+            onClick={onToggleTerminal}
+            className={`p-2.5 rounded-xl border transition-all ${
+              showTerminal
+                ? 'bg-blue-600/20 text-blue-400 border-blue-500/50'
+                : 'bg-[#12141a] border-[#1f242d] text-neutral-400 hover:text-blue-400'
+            }`}
+            title="Toggle Live Terminal"
           >
             <Terminal size={15} />
           </button>
@@ -81,23 +85,6 @@ export const RenderBar: React.FC<RenderBarProps> = ({
             </a>
           )}
         </div>
-
-        {/* Log Viewer */}
-        {showLogs && (
-          <div className="max-h-40 overflow-y-auto bg-black p-2.5 rounded-xl border border-[#1f242d] font-mono text-[11px] text-neutral-400 space-y-1">
-            <div className="text-blue-400 font-medium mb-1 flex items-center justify-between">
-              <span>Server Logs:</span>
-              <button onClick={() => setShowLogs(false)} className="text-neutral-500 hover:text-white">✕</button>
-            </div>
-            {logs.length === 0 ? (
-              <p className="text-neutral-600 italic">No output yet.</p>
-            ) : (
-              logs.map((log, index) => (
-                <div key={index} className="break-all whitespace-pre-wrap">{log}</div>
-              ))
-            )}
-          </div>
-        )}
       </div>
     </div>
   );
