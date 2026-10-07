@@ -9,7 +9,7 @@ interface SceneCardProps {
   isLastScene: boolean;
   canDelete: boolean;
   isPlayingThisScene: boolean;
-  onPlayScene: (start: number) => void;
+  onPlayScene: (scene: SceneItem) => void;
   onEditScene: (scene: SceneItem) => void;
   onDeleteScene: (sceneIndex: number) => void;
   onUpdate: (updated: SceneItem) => void;
@@ -91,7 +91,7 @@ export const SceneCard: React.FC<SceneCardProps> = ({
         <div className="flex items-center gap-2">
           {/* Play snippet audio button */}
           <button
-            onClick={() => onPlayScene(scene.start)}
+            onClick={() => onPlayScene(scene)}
             className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
               isPlayingThisScene
                 ? 'bg-blue-600 text-white'

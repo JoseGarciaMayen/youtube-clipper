@@ -10,7 +10,9 @@ interface AudioTimelineProps {
   onSplit: (time: number) => void;
   splits: number[];
   seekTime: number | null;
+  clipRange: { start: number; end: number } | null;
   onSeekHandled: () => void;
+  onClipEnded?: () => void;
   onPlayStateChange?: (playing: boolean) => void;
   onResetAudio?: () => void;
 }
@@ -23,7 +25,9 @@ export const AudioTimeline: React.FC<AudioTimelineProps> = ({
   onSplit,
   splits,
   seekTime,
+  clipRange,
   onSeekHandled,
+  onClipEnded,
   onPlayStateChange,
   onResetAudio,
 }) => {
@@ -44,7 +48,19 @@ export const AudioTimeline: React.FC<AudioTimelineProps> = ({
     const audio = audioRef.current;
     if (!audio) return;
 
-    const handleTime = () => onTimeUpdate(audio.currentTime);
+    const handleTime = () => {
+      onTimeUpdate(audio.currentTime);
+
+      // If playing a specific clipped scene, stop precisely at scene.end
+      if (clipRange && audio.currentTime >= clipRange.end) {
+        audio.pause();
+        audio.currentTime = clipRange.start;
+        setIsPlaying(false);
+        onPlayStateChange?.(false);
+        onClipEnded?.();
+      }
+    };
+
     const handlePlay = () => {
       setIsPlaying(true);
       onPlayStateChange?.(true);
@@ -56,6 +72,7 @@ export const AudioTimeline: React.FC<AudioTimelineProps> = ({
     const handleEnded = () => {
       setIsPlaying(false);
       onPlayStateChange?.(false);
+      onClipEnded?.();
     };
 
     audio.addEventListener('timeupdate', handleTime);
@@ -69,7 +86,7 @@ export const AudioTimeline: React.FC<AudioTimelineProps> = ({
       audio.removeEventListener('pause', handlePause);
       audio.removeEventListener('ended', handleEnded);
     };
-  }, [onTimeUpdate, onPlayStateChange]);
+  }, [onTimeUpdate, onPlayStateChange, clipRange, onClipEnded]);
 
   const togglePlay = () => {
     if (!audioRef.current) return;

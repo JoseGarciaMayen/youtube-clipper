@@ -18,6 +18,7 @@ export const App: React.FC = () => {
   const [hasRenderedVideo, setHasRenderedVideo] = useState(false);
   const [seekTime, setSeekTime] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [activeClipScene, setActiveClipScene] = useState<{ id: string; start: number; end: number } | null>(null);
 
   // Active scene for large desktop live preview
   const [selectedSceneIndex, setSelectedSceneIndex] = useState<number>(1);
@@ -272,12 +273,27 @@ export const App: React.FC = () => {
     }
   };
 
+  const handlePlaySceneClip = (scene: SceneItem) => {
+    // If this scene is already playing, pause it
+    if (activeClipScene && activeClipScene.id === scene.id && isPlaying) {
+      setActiveClipScene(null);
+      setIsPlaying(false);
+      setSeekTime(null);
+    } else {
+      // Play ONLY this scene's slice: start to end
+      setActiveClipScene({ id: scene.id, start: scene.start, end: scene.end });
+      setSeekTime(scene.start);
+      setSelectedSceneIndex(scene.index);
+    }
+  };
+
   const handleResetAudio = () => {
     if (confirm('Are you sure you want to remove the current audio and start over?')) {
       setProjectId(null);
       setAudioDuration(0);
       setCurrentTime(0);
       setScenes([]);
+      setActiveClipScene(null);
       setHasRenderedVideo(false);
       window.history.pushState({}, '', window.location.pathname);
     }
@@ -333,7 +349,9 @@ export const App: React.FC = () => {
             onSplit={handleSplit}
             splits={splitPoints}
             seekTime={seekTime}
+            clipRange={activeClipScene ? { start: activeClipScene.start, end: activeClipScene.end } : null}
             onSeekHandled={() => setSeekTime(null)}
+            onClipEnded={() => setActiveClipScene(null)}
             onPlayStateChange={setIsPlaying}
             onResetAudio={handleResetAudio}
           />
@@ -357,7 +375,7 @@ export const App: React.FC = () => {
           <div className="flex flex-col gap-2.5">
             {scenes.map((scene, idx) => {
               const isPlayingThisScene =
-                isPlaying && currentTime >= scene.start && currentTime <= scene.end;
+                isPlaying && activeClipScene?.id === scene.id;
 
               return (
                 <div
@@ -373,7 +391,7 @@ export const App: React.FC = () => {
                     isLastScene={idx === scenes.length - 1}
                     canDelete={scenes.length > 1}
                     isPlayingThisScene={isPlayingThisScene}
-                    onPlayScene={(startTime) => setSeekTime(startTime)}
+                    onPlayScene={handlePlaySceneClip}
                     onEditScene={(sc) => setEditingScene(sc)}
                     onDeleteScene={handleDeleteScene}
                     onUpdate={handleUpdateScene}
