@@ -23,10 +23,11 @@ function createWindow() {
     autoHideMenuBar: true,
   });
 
-  const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
-  const startUrl = isDev
-    ? (process.env.ELECTRON_START_URL || 'http://localhost:5173')
-    : `file://${path.join(__dirname, 'dist/index.html')}`;
+  const isDev = process.env.NODE_ENV === 'development';
+  // If in dev mode with Vite server, use 5173, otherwise load the fast integrated backend on 8080
+  const startUrl = process.env.ELECTRON_START_URL
+    ? process.env.ELECTRON_START_URL
+    : (isDev ? 'http://localhost:5173' : 'http://127.0.0.1:8080');
 
   mainWindow.loadURL(startUrl);
 
