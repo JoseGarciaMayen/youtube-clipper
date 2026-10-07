@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Mic, MicOff, Sparkles, RefreshCw, Eye, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+import { Mic, MicOff, Sparkles, RefreshCw, Eye, Check, AlertCircle, Play, Pause, ChevronDown, ChevronUp } from 'lucide-react';
 import { SceneItem } from '../types';
 import { API_BASE } from '../services/api';
 
 interface SceneCardProps {
   scene: SceneItem;
   projectId: string;
+  isPlayingThisScene: boolean;
+  onPlayScene: (start: number) => void;
   onUpdate: (updated: SceneItem) => void;
   onGenerate: (sceneIdx: number, refinement?: string) => void;
 }
@@ -13,6 +15,8 @@ interface SceneCardProps {
 export const SceneCard: React.FC<SceneCardProps> = ({
   scene,
   projectId,
+  isPlayingThisScene,
+  onPlayScene,
   onUpdate,
   onGenerate,
 }) => {
@@ -20,6 +24,7 @@ export const SceneCard: React.FC<SceneCardProps> = ({
   const [activeSpeechField, setActiveSpeechField] = useState<'voice' | 'visual'>('visual');
   const [refinementText, setRefinementText] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
 
   useEffect(() => {
@@ -30,7 +35,7 @@ export const SceneCard: React.FC<SceneCardProps> = ({
 
   const toggleSpeechRecognition = (field: 'voice' | 'visual') => {
     if (!speechSupported) {
-      alert('Web Speech API is not supported in this browser. Please use Chrome/Edge or type manually.');
+      alert('Speech API not supported on this browser. Please type manually.');
       return;
     }
 
@@ -62,104 +67,130 @@ export const SceneCard: React.FC<SceneCardProps> = ({
     recognition.start();
   };
 
-  const statusBadges = {
-    pending: <span className="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 font-medium border border-slate-700">Pending</span>,
-    generating: <span className="text-xs px-2.5 py-1 rounded-full bg-cyan-950 text-cyan-400 font-medium border border-cyan-800 flex items-center gap-1.5"><RefreshCw size={12} className="animate-spin" /> Generating</span>,
-    ready: <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-400 font-medium border border-emerald-800 flex items-center gap-1.5"><CheckCircle2 size={12} /> Ready</span>,
-    error: <span className="text-xs px-2.5 py-1 rounded-full bg-rose-950 text-rose-400 font-medium border border-rose-800 flex items-center gap-1.5"><AlertCircle size={12} /> Error</span>,
+  const statusIndicators = {
+    pending: <span className="w-2 h-2 rounded-full bg-slate-600" title="Pending" />,
+    generating: <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" title="Generating" />,
+    ready: <span className="w-2 h-2 rounded-full bg-emerald-400" title="Ready" />,
+    error: <span className="w-2 h-2 rounded-full bg-rose-500" title="Error" />,
   };
 
   return (
-    <div className="bg-surface border border-border rounded-2xl p-4 shadow-lg flex flex-col gap-3 transition-all">
-      {/* Header Info */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="font-mono font-bold text-lg text-primary">#{scene.index.toString().padStart(2, '0')}</span>
-          <div className="flex items-center text-xs font-mono text-slate-400 gap-1 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
-            <Clock size={12} />
-            <span>{scene.start.toFixed(2)}s - {scene.end.toFixed(2)}s</span>
-            <span className="text-amber-400 font-semibold">({scene.duration.toFixed(2)}s)</span>
+    <div className={`bg-slate-900/40 border rounded-2xl p-3.5 transition-all backdrop-blur-sm ${
+      isPlayingThisScene ? 'border-cyan-500/70 ring-1 ring-cyan-500/30' : 'border-slate-800/80 hover:border-slate-700'
+    }`}>
+      {/* Minimal Header */}
+      <div className="flex items-center justify-between gap-3">
+        {/* Left: Play Scene Audio Button & Tag */}
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => onPlayScene(scene.start)}
+            className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+              isPlayingThisScene
+                ? 'bg-cyan-400 text-slate-950 scale-105 shadow-sm shadow-cyan-400/20'
+                : 'bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700'
+            }`}
+            title="Listen to this clipped audio segment"
+          >
+            {isPlayingThisScene ? <Pause size={14} /> : <Play size={14} className="ml-0.5" />}
+          </button>
+
+          <div className="flex items-baseline gap-1.5 font-mono">
+            <span className="text-sm font-bold text-slate-200">#{scene.index.toString().padStart(2, '0')}</span>
+            <span className="text-xs text-slate-400">
+              {scene.start.toFixed(1)}s - {scene.end.toFixed(1)}s
+            </span>
+            <span className="text-xs text-amber-400/90 font-medium">({scene.duration.toFixed(1)}s)</span>
           </div>
         </div>
-        {statusBadges[scene.status]}
-      </div>
 
-      {/* Voice Prompt (Spoken Locution) */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center justify-between">
-          <label className="text-xs font-medium text-slate-400">Audio Narration Cue</label>
+        {/* Right: Status badge & Toggle Details */}
+        <div className="flex items-center gap-2">
+          {statusIndicators[scene.status]}
           <button
-            onClick={() => toggleSpeechRecognition('voice')}
-            className={`p-1 rounded-lg text-xs flex items-center gap-1 transition-all ${
-              isListening && activeSpeechField === 'voice'
-                ? 'bg-rose-500 text-white animate-pulse'
-                : 'text-slate-400 hover:text-cyan-400'
-            }`}
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="p-1 rounded-lg text-slate-400 hover:text-slate-200"
           >
-            {isListening && activeSpeechField === 'voice' ? <MicOff size={14} /> : <Mic size={14} />}
-            <span>Voice</span>
+            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </button>
         </div>
+      </div>
+
+      {/* Main Visual Prompt (Always visible in 1 clean line or expanded) */}
+      <div className="mt-2.5 flex items-center gap-2">
         <input
           type="text"
-          value={scene.prompt_voice}
-          placeholder="e.g. As x approaches infinity, the curvature flattens..."
-          onChange={(e) => onUpdate({ ...scene, prompt_voice: e.target.value })}
-          className="w-full bg-slate-950 border border-border rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500"
-        />
-      </div>
-
-      {/* Visual Instruction Prompt */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center justify-between">
-          <label className="text-xs font-medium text-slate-400">Visual Math Animation Prompt</label>
-          <button
-            onClick={() => toggleSpeechRecognition('visual')}
-            className={`p-1 rounded-lg text-xs flex items-center gap-1 transition-all ${
-              isListening && activeSpeechField === 'visual'
-                ? 'bg-rose-500 text-white animate-pulse'
-                : 'text-slate-400 hover:text-cyan-400'
-            }`}
-          >
-            {isListening && activeSpeechField === 'visual' ? <MicOff size={14} /> : <Mic size={14} />}
-            <span>Voice</span>
-          </button>
-        </div>
-        <textarea
-          rows={2}
           value={scene.prompt_visual}
-          placeholder="e.g. Draw a 3Blue1Brown glowing cyan vector field rotating into a spiral."
+          placeholder="Visual prompt: e.g. 3D hyperbolic graph..."
           onChange={(e) => onUpdate({ ...scene, prompt_visual: e.target.value })}
-          className="w-full bg-slate-950 border border-border rounded-xl p-3 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500 resize-none"
+          className="flex-1 bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/80"
         />
-      </div>
 
-      {/* Action Buttons */}
-      <div className="flex items-center gap-2 pt-1">
+        <button
+          onClick={() => toggleSpeechRecognition('visual')}
+          className={`p-2 rounded-xl border text-xs transition-all ${
+            isListening && activeSpeechField === 'visual'
+              ? 'bg-rose-500/20 text-rose-400 border-rose-500 animate-pulse'
+              : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-cyan-400'
+          }`}
+          title="Dictate visual prompt"
+        >
+          {isListening && activeSpeechField === 'visual' ? <MicOff size={14} /> : <Mic size={14} />}
+        </button>
+
         <button
           onClick={() => onGenerate(scene.index)}
           disabled={scene.status === 'generating'}
-          className="flex-1 py-2.5 px-3 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 font-semibold text-xs border border-cyan-500/30 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 transition-all"
+          className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-cyan-500 active:text-slate-950 text-cyan-400 font-medium text-xs border border-slate-700/60 disabled:opacity-50 transition-all flex items-center gap-1.5"
+          title="Generate with OpenCode"
         >
-          <Sparkles size={16} />
-          <span>{scene.status === 'ready' ? 'Regenerate' : 'Generate with OpenCode'}</span>
+          <Sparkles size={13} />
+          <span className="hidden sm:inline">{scene.status === 'ready' ? 'Redo' : 'Gen'}</span>
         </button>
 
         {scene.status === 'ready' && (
           <button
             onClick={() => setShowPreview(!showPreview)}
-            className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-border flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 text-xs transition-all"
+            title="Preview animation"
           >
-            <Eye size={16} />
-            <span>{showPreview ? 'Hide' : 'Preview'}</span>
+            <Eye size={14} />
           </button>
         )}
       </div>
 
-      {/* Interactive 16:9 Responsive Preview Iframe */}
+      {/* Expanded Details: Narration cue & Refinement */}
+      {isExpanded && (
+        <div className="mt-3 pt-3 border-t border-slate-800/60 flex flex-col gap-2.5 text-xs">
+          {/* Narration Cue */}
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] text-slate-500 font-medium">Audio Narration Cue</span>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={scene.prompt_voice}
+                placeholder="Spoken words in this clip..."
+                onChange={(e) => onUpdate({ ...scene, prompt_voice: e.target.value })}
+                className="flex-1 bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-1.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/80"
+              />
+              <button
+                onClick={() => toggleSpeechRecognition('voice')}
+                className={`p-2 rounded-xl border ${
+                  isListening && activeSpeechField === 'voice'
+                    ? 'bg-rose-500/20 text-rose-400 border-rose-500 animate-pulse'
+                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-cyan-400'
+                }`}
+              >
+                {isListening && activeSpeechField === 'voice' ? <MicOff size={14} /> : <Mic size={14} />}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Preview Section */}
       {showPreview && scene.status === 'ready' && (
-        <div className="mt-2 flex flex-col gap-2">
-          <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-border bg-black shadow-inner">
+        <div className="mt-3 flex flex-col gap-2">
+          <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-slate-800 bg-black">
             <iframe
               src={`${API_BASE}/${projectId}/scenes/${scene.index}/preview?t=${Date.now()}`}
               title={`Preview Scene ${scene.index}`}
@@ -168,14 +199,13 @@ export const SceneCard: React.FC<SceneCardProps> = ({
             />
           </div>
 
-          {/* Quick Refactoring Prompt */}
           <div className="flex gap-2">
             <input
               type="text"
-              placeholder="Refine: Make vector arrows glow brighter..."
+              placeholder="Refine: Make wave curve faster..."
               value={refinementText}
               onChange={(e) => setRefinementText(e.target.value)}
-              className="flex-1 bg-slate-950 border border-border rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-400"
+              className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-400"
             />
             <button
               onClick={() => {
@@ -184,7 +214,7 @@ export const SceneCard: React.FC<SceneCardProps> = ({
                   setRefinementText('');
                 }
               }}
-              className="px-3 py-1.5 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-400 active:scale-95 transition-all"
+              className="px-3 py-1.5 rounded-xl bg-amber-400 text-slate-950 font-semibold text-xs active:scale-95 transition-all"
             >
               Refine
             </button>

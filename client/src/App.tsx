@@ -5,7 +5,7 @@ import { SceneCard } from './components/SceneCard';
 import { RenderBar } from './components/RenderBar';
 import { fetchProject, updateTimeline, generateScene, triggerRender } from './services/api';
 import { SceneItem, WebSocketEvent } from './types';
-import { Plus, Sparkles, Layers } from 'lucide-react';
+import { Sparkles, Layers } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -13,6 +13,8 @@ export const App: React.FC = () => {
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [scenes, setScenes] = useState<SceneItem[]>([]);
   const [hasRenderedVideo, setHasRenderedVideo] = useState(false);
+  const [seekTime, setSeekTime] = useState<number | null>(null);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
   
   // Render & Logs State
   const [isRendering, setIsRendering] = useState(false);
@@ -55,18 +57,17 @@ export const App: React.FC = () => {
             setIsRendering(false);
             setRenderProgress(100);
             setHasRenderedVideo(true);
-            setRenderStatusMessage('Render finished!');
-            setLogs((prev) => [...prev, '✓ Video successfully rendered & synced.']);
+            setRenderStatusMessage('Render complete');
+            setLogs((prev) => [...prev, '✓ Video successfully rendered.']);
           } else if (data.type === 'render_error') {
             setIsRendering(false);
-            setRenderStatusMessage('Render Error: ' + (data.error || 'Unknown'));
+            setRenderStatusMessage('Error: ' + (data.error || 'Unknown'));
             setLogs((prev) => [...prev, `[ERROR] ${data.error}`]);
           } else if (data.type === 'opencode_complete' && data.scene_index !== undefined) {
-            // Refresh scenes
             fetchProject(projectId).then((p) => setScenes(p.scenes));
           }
         } catch (e) {
-          // Non-JSON message
+          // ignore
         }
       };
 
@@ -90,9 +91,7 @@ export const App: React.FC = () => {
         setAudioDuration(data.audio_duration);
         setScenes(data.scenes || []);
         setHasRenderedVideo(!!data.has_rendered_video);
-      }).catch(() => {
-        // Project might not exist
-      });
+      }).catch(() => {});
     }
   }, []);
 
@@ -101,7 +100,6 @@ export const App: React.FC = () => {
     setAudioDuration(duration);
     window.history.pushState({}, '', `?project=${newId}`);
     
-    // Create initial Scene 1 covering start to duration
     const initialScene: SceneItem = {
       id: 'sc-1',
       index: 1,
@@ -117,12 +115,10 @@ export const App: React.FC = () => {
     updateTimeline(newId, initialScenes);
   };
 
-  // TAP TO SPLIT logic
   const handleSplit = useCallback((timestamp: number) => {
     if (!projectId || timestamp <= 0.1 || timestamp >= audioDuration - 0.1) return;
 
     setScenes((currentScenes) => {
-      // Find scene that contains timestamp
       const targetIdx = currentScenes.findIndex(
         (s) => timestamp > s.start && timestamp < s.end
       );
@@ -171,7 +167,6 @@ export const App: React.FC = () => {
 
   const handleGenerate = async (sceneIdx: number, refinement?: string) => {
     if (!projectId) return;
-    // optimistic update
     setScenes((prev) =>
       prev.map((s) => (s.index === sceneIdx ? { ...s, status: 'generating' } : s))
     );
@@ -196,7 +191,7 @@ export const App: React.FC = () => {
     if (!projectId) return;
     setIsRendering(true);
     setRenderProgress(0);
-    setRenderStatusMessage('Starting headless render engine...');
+    setRenderStatusMessage('Starting render engine...');
     try {
       await triggerRender(projectId);
     } catch (err: any) {
@@ -209,19 +204,18 @@ export const App: React.FC = () => {
     return <AudioUpload onProjectCreated={handleProjectCreated} />;
   }
 
-  // Extract split cut positions for the timeline bar
   const splitPoints = scenes.slice(0, -1).map((s) => s.end);
 
   return (
-    <div className="min-h-screen bg-background pb-32 pt-4 px-4 max-w-xl mx-auto flex flex-col gap-5">
-      {/* App Header */}
-      <header className="flex items-center justify-between border-b border-border/60 pb-3">
+    <div className="min-h-screen bg-background pb-28 pt-4 px-3 max-w-lg mx-auto flex flex-col gap-4">
+      {/* Header */}
+      <header className="flex items-center justify-between pb-2 border-b border-slate-800/60">
         <div className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded-full bg-cyan-400 animate-pulse" />
-          <h1 className="font-bold text-lg text-slate-100">Math Clipper Studio</h1>
+          <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
+          <h1 className="font-semibold text-sm tracking-wide text-slate-100">Math Clipper</h1>
         </div>
-        <div className="text-xs font-mono text-slate-400 bg-slate-900 px-2 py-1 rounded border border-slate-800">
-          ID: {projectId}
+        <div className="text-[11px] font-mono text-slate-500">
+          {projectId}
         </div>
       </header>
 
@@ -233,36 +227,44 @@ export const App: React.FC = () => {
         onTimeUpdate={setCurrentTime}
         onSplit={handleSplit}
         splits={splitPoints}
+        seekTime={seekTime}
+        onSeekHandled={() => setSeekTime(null)}
+        onPlayStateChange={setIsPlaying}
       />
 
-      {/* Scenes List Section Header */}
-      <div className="flex items-center justify-between pt-2">
-        <div className="flex items-center gap-2">
-          <Layers size={18} className="text-primary" />
-          <h2 className="font-bold text-sm tracking-wide text-slate-200 uppercase">
-            Timeline Scenes ({scenes.length})
-          </h2>
+      {/* Scenes List Header */}
+      <div className="flex items-center justify-between pt-1">
+        <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+          <Layers size={14} className="text-cyan-400" />
+          <span>Scenes ({scenes.length})</span>
         </div>
         <button
           onClick={handleGenerateAll}
-          className="text-xs px-3 py-1.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center gap-1.5 active:scale-95 transition-all"
+          className="text-xs px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700/60 flex items-center gap-1.5 active:scale-95 transition-all"
         >
-          <Sparkles size={14} />
+          <Sparkles size={12} />
           <span>Generate All</span>
         </button>
       </div>
 
-      {/* Scene Cards */}
-      <div className="flex flex-col gap-4">
-        {scenes.map((scene) => (
-          <SceneCard
-            key={scene.id || scene.index}
-            scene={scene}
-            projectId={projectId}
-            onUpdate={handleUpdateScene}
-            onGenerate={handleGenerate}
-          />
-        ))}
+      {/* Scene Cards with clip audio playback */}
+      <div className="flex flex-col gap-2.5">
+        {scenes.map((scene) => {
+          const isPlayingThisScene =
+            isPlaying && currentTime >= scene.start && currentTime <= scene.end;
+
+          return (
+            <SceneCard
+              key={scene.id || scene.index}
+              scene={scene}
+              projectId={projectId}
+              isPlayingThisScene={isPlayingThisScene}
+              onPlayScene={(startTime) => setSeekTime(startTime)}
+              onUpdate={handleUpdateScene}
+              onGenerate={handleGenerate}
+            />
+          );
+        })}
       </div>
 
       {/* Fixed Bottom Render Bar */}

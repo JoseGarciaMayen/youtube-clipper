@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Play, Pause, RotateCcw, Volume2, Sparkles, Scissors } from 'lucide-react';
+import { Play, Pause, Scissors, Volume2 } from 'lucide-react';
 import { API_BASE } from '../services/api';
 
 interface AudioTimelineProps {
@@ -9,6 +9,9 @@ interface AudioTimelineProps {
   onTimeUpdate: (time: number) => void;
   onSplit: (time: number) => void;
   splits: number[];
+  seekTime: number | null;
+  onSeekHandled: () => void;
+  onPlayStateChange?: (playing: boolean) => void;
 }
 
 export const AudioTimeline: React.FC<AudioTimelineProps> = ({
@@ -18,35 +21,61 @@ export const AudioTimeline: React.FC<AudioTimelineProps> = ({
   onTimeUpdate,
   onSplit,
   splits,
+  seekTime,
+  onSeekHandled,
+  onPlayStateChange,
 }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isTapPressed, setIsTapPressed] = useState(false);
+
+  // Sync seek requests from scene clicks
+  useEffect(() => {
+    if (seekTime !== null && audioRef.current) {
+      audioRef.current.currentTime = seekTime;
+      audioRef.current.play().catch(() => {});
+      setIsPlaying(true);
+      onSeekHandled();
+    }
+  }, [seekTime, onSeekHandled]);
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
     const handleTime = () => onTimeUpdate(audio.currentTime);
-    const handleEnded = () => setIsPlaying(false);
+    const handlePlay = () => {
+      setIsPlaying(true);
+      onPlayStateChange?.(true);
+    };
+    const handlePause = () => {
+      setIsPlaying(false);
+      onPlayStateChange?.(false);
+    };
+    const handleEnded = () => {
+      setIsPlaying(false);
+      onPlayStateChange?.(false);
+    };
 
     audio.addEventListener('timeupdate', handleTime);
+    audio.addEventListener('play', handlePlay);
+    audio.addEventListener('pause', handlePause);
     audio.addEventListener('ended', handleEnded);
 
     return () => {
       audio.removeEventListener('timeupdate', handleTime);
+      audio.removeEventListener('play', handlePlay);
+      audio.removeEventListener('pause', handlePause);
       audio.removeEventListener('ended', handleEnded);
     };
-  }, [onTimeUpdate]);
+  }, [onTimeUpdate, onPlayStateChange]);
 
   const togglePlay = () => {
     if (!audioRef.current) return;
     if (isPlaying) {
       audioRef.current.pause();
-      setIsPlaying(false);
     } else {
-      audioRef.current.play();
-      setIsPlaying(true);
+      audioRef.current.play().catch(console.error);
     }
   };
 
@@ -61,7 +90,7 @@ export const AudioTimeline: React.FC<AudioTimelineProps> = ({
   const handleTapToSplit = (e: React.TouchEvent | React.MouseEvent) => {
     e.preventDefault();
     setIsTapPressed(true);
-    setTimeout(() => setIsTapPressed(false), 200);
+    setTimeout(() => setIsTapPressed(false), 150);
 
     const time = audioRef.current ? audioRef.current.currentTime : currentTime;
     onSplit(time);
@@ -75,53 +104,50 @@ export const AudioTimeline: React.FC<AudioTimelineProps> = ({
   };
 
   return (
-    <div className="flex flex-col bg-surface border border-border/80 rounded-2xl p-4 shadow-xl">
-      <audio ref={audioRef} src={`${API_BASE}/${projectId}/audio`} preload="auto" />
+    <div className="flex flex-col bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 backdrop-blur-sm">
+      <audio
+        ref={audioRef}
+        src={`${API_BASE}/${projectId}/audio`}
+        preload="auto"
+        playsInline
+      />
 
-      {/* Top Playback Controls & Time Display */}
+      {/* Top Header: Play Button & Time Display */}
       <div className="flex items-center justify-between mb-3">
         <button
           onClick={togglePlay}
-          className="flex items-center justify-center w-12 h-12 rounded-full bg-primary hover:bg-cyan-400 text-slate-950 font-bold shadow-lg shadow-cyan-500/20 active:scale-95 transition-all"
+          className="flex items-center justify-center w-11 h-11 rounded-full bg-cyan-400 hover:bg-cyan-300 text-slate-950 shadow-md shadow-cyan-500/10 active:scale-95 transition-all"
         >
-          {isPlaying ? <Pause size={22} /> : <Play size={22} className="ml-1" />}
+          {isPlaying ? <Pause size={20} /> : <Play size={20} className="ml-0.5" />}
         </button>
 
         <div className="text-right font-mono">
-          <div className="text-2xl font-bold text-primary tracking-wider">
+          <div className="text-xl font-semibold text-slate-100 tracking-tight">
             {formatTime(currentTime)}
           </div>
-          <div className="text-xs text-slate-400">
-            Total: {formatTime(duration)}
+          <div className="text-[11px] text-slate-500">
+            Total {formatTime(duration)}
           </div>
         </div>
       </div>
 
-      {/* Visual Timeline Bar with Split Markers */}
-      <div className="relative w-full my-3">
-        <div className="relative h-6 bg-slate-950 rounded-lg overflow-hidden border border-border flex items-center">
-          {/* Progress bar */}
+      {/* Minimal Scrubber Bar */}
+      <div className="relative w-full my-2">
+        <div className="relative h-3 bg-slate-950 rounded-full overflow-hidden border border-slate-800 flex items-center">
           <div
-            className="h-full bg-cyan-900/60 transition-all duration-75"
+            className="h-full bg-cyan-500 transition-all duration-75"
             style={{ width: `${(currentTime / Math.max(duration, 0.1)) * 100}%` }}
           />
 
-          {/* Scene cut markers */}
-          {splits.map((s, idx) => {
-            const leftPct = (s / Math.max(duration, 0.1)) * 100;
-            return (
-              <div
-                key={idx}
-                className="absolute top-0 bottom-0 w-0.5 bg-amber-400 z-10"
-                style={{ left: `${leftPct}%` }}
-              >
-                <div className="w-2 h-2 -ml-[3px] rounded-full bg-amber-400 -mt-1 shadow-sm" />
-              </div>
-            );
-          })}
+          {splits.map((s, idx) => (
+            <div
+              key={idx}
+              className="absolute top-0 bottom-0 w-[2px] bg-amber-400 z-10"
+              style={{ left: `${(s / Math.max(duration, 0.1)) * 100}%` }}
+            />
+          ))}
         </div>
 
-        {/* Range Slider for Scrubbing */}
         <input
           type="range"
           min="0"
@@ -133,22 +159,19 @@ export const AudioTimeline: React.FC<AudioTimelineProps> = ({
         />
       </div>
 
-      {/* GIANT TAP TO SPLIT BUTTON (Mobile Optimized) */}
+      {/* Sleek Tap To Split Button */}
       <button
         onTouchStart={handleTapToSplit}
         onClick={handleTapToSplit}
-        className={`w-full py-6 mt-2 rounded-2xl font-black text-xl tracking-wider uppercase transition-all duration-150 shadow-2xl flex items-center justify-center gap-3 ${
+        className={`w-full py-4 mt-2 rounded-xl font-bold text-sm tracking-widest uppercase transition-all duration-100 flex items-center justify-center gap-2.5 ${
           isTapPressed
-            ? 'scale-95 bg-amber-400 text-slate-950 ring-4 ring-amber-300'
-            : 'bg-gradient-to-r from-cyan-500 via-teal-500 to-amber-500 text-slate-950 hover:brightness-110 active:scale-95'
+            ? 'scale-[0.98] bg-amber-400 text-slate-950'
+            : 'bg-slate-800 hover:bg-slate-700 active:bg-cyan-400 active:text-slate-950 text-slate-200 border border-slate-700/60'
         }`}
       >
-        <Scissors size={28} className={isTapPressed ? 'rotate-45' : ''} />
-        <span>TAP TO SPLIT SCENE</span>
+        <Scissors size={18} className={isTapPressed ? 'rotate-45 text-slate-950' : 'text-cyan-400'} />
+        <span>Tap to Split Scene</span>
       </button>
-      <p className="text-center text-xs text-slate-400 mt-2 font-medium">
-        Press button while audio plays to stamp cut markers in real time.
-      </p>
     </div>
   );
 };

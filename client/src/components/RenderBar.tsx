@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Film, Download, CheckCircle, RefreshCw, Terminal, ChevronDown, ChevronUp } from 'lucide-react';
+import { Film, Download, RefreshCw, Terminal } from 'lucide-react';
 import { API_BASE } from '../services/api';
 
 interface RenderBarProps {
@@ -24,47 +24,47 @@ export const RenderBar: React.FC<RenderBarProps> = ({
   const [showLogs, setShowLogs] = useState(false);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-surface/95 backdrop-blur-lg border-t border-border p-4 shadow-2xl z-50">
-      <div className="max-w-xl mx-auto flex flex-col gap-3">
-        {/* Progress or Status */}
+    <div className="fixed bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-md border-t border-slate-800/80 p-3 z-50">
+      <div className="max-w-lg mx-auto flex flex-col gap-2">
+        {/* Progress status */}
         {isRendering && (
-          <div className="flex flex-col gap-1.5">
-            <div className="flex justify-between text-xs font-mono text-cyan-400">
-              <span>{renderStatusMessage || 'Rendering headless 60 FPS video...'}</span>
+          <div className="flex flex-col gap-1">
+            <div className="flex justify-between text-[11px] font-mono text-cyan-400">
+              <span className="truncate">{renderStatusMessage || 'Rendering...'}</span>
               <span>{renderProgress.toFixed(0)}%</span>
             </div>
-            <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800">
+            <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden border border-slate-800">
               <div
-                className="bg-gradient-to-r from-cyan-500 to-amber-500 h-full transition-all duration-300"
+                className="bg-cyan-500 h-full transition-all duration-300"
                 style={{ width: `${renderProgress}%` }}
               />
             </div>
           </div>
         )}
 
-        {/* Buttons */}
-        <div className="flex items-center gap-3">
+        {/* Buttons row */}
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setShowLogs(!showLogs)}
-            className="p-3 rounded-xl bg-slate-900 border border-border text-slate-400 hover:text-cyan-400 active:scale-95 transition-all"
-            title="Toggle Live Logs"
+            className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-cyan-400 active:scale-95 transition-all"
+            title="Terminal logs"
           >
-            <Terminal size={20} />
+            <Terminal size={16} />
           </button>
 
           <button
             onClick={onStartRender}
             disabled={isRendering}
-            className="flex-1 py-3.5 px-4 rounded-xl bg-gradient-to-r from-cyan-500 via-teal-500 to-amber-500 hover:brightness-110 active:scale-95 disabled:opacity-50 text-slate-950 font-black text-sm tracking-wide uppercase transition-all shadow-lg flex items-center justify-center gap-2"
+            className="flex-1 py-2.5 px-3 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-bold text-xs uppercase tracking-wider active:scale-95 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
           >
             {isRendering ? (
               <>
-                <RefreshCw size={18} className="animate-spin" />
-                <span>Rendering Headless 60 FPS...</span>
+                <RefreshCw size={14} className="animate-spin" />
+                <span>Rendering 60 FPS...</span>
               </>
             ) : (
               <>
-                <Film size={18} />
+                <Film size={14} />
                 <span>Render Master MP4</span>
               </>
             )}
@@ -74,19 +74,19 @@ export const RenderBar: React.FC<RenderBarProps> = ({
             <a
               href={`${API_BASE}/${projectId}/download`}
               download
-              className="py-3.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm tracking-wide uppercase active:scale-95 transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2"
+              className="py-2.5 px-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs uppercase tracking-wider active:scale-95 transition-all flex items-center gap-1.5"
             >
-              <Download size={18} />
-              <span>Download</span>
+              <Download size={14} />
+              <span>Save</span>
             </a>
           )}
         </div>
 
-        {/* Real-time Log Console Drawer */}
+        {/* Log Viewer */}
         {showLogs && (
-          <div className="max-h-48 overflow-y-auto bg-slate-950 p-3 rounded-xl border border-slate-800 font-mono text-xs text-slate-400 space-y-1">
-            <div className="text-cyan-400 font-semibold mb-1 flex items-center justify-between">
-              <span>Server & OpenCode Live Logs:</span>
+          <div className="max-h-40 overflow-y-auto bg-black p-2.5 rounded-xl border border-slate-800 font-mono text-[11px] text-slate-400 space-y-1">
+            <div className="text-cyan-400 font-medium mb-1 flex items-center justify-between">
+              <span>Logs:</span>
               <button onClick={() => setShowLogs(false)} className="text-slate-500 hover:text-white">✕</button>
             </div>
             {logs.length === 0 ? (
