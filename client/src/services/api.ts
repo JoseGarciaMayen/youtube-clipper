@@ -1,6 +1,5 @@
 import { ProjectData, SceneItem } from '../types';
-
-const API_BASE = '/api/projects';
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '') + '/api/projects';
 
 export async function createProject(audioFile: File): Promise<{ project_id: string; audio_duration: number }> {
   const formData = new FormData();

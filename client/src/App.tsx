@@ -24,8 +24,16 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (!projectId) return;
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/api/projects/ws/${projectId}`;
+    const apiBase = import.meta.env.VITE_API_BASE_URL;
+    let wsUrl = '';
+    if (apiBase) {
+      const wsProto = apiBase.startsWith('https') ? 'wss:' : 'ws:';
+      const host = apiBase.replace(/^https?:\/\//, '');
+      wsUrl = `${wsProto}//${host}/api/projects/ws/${projectId}`;
+    } else {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      wsUrl = `${protocol}//${window.location.host}/api/projects/ws/${projectId}`;
+    }
     let ws: WebSocket;
 
     try {
