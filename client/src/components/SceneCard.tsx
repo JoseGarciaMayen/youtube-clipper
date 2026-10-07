@@ -33,6 +33,7 @@ export const SceneCard: React.FC<SceneCardProps> = ({
   const [activeSpeechField, setActiveSpeechField] = useState<'voice' | 'visual'>('visual');
   const [refinementText, setRefinementText] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const [cardVersion, setCardVersion] = useState<number>(1);
   const [isExpanded, setIsExpanded] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
 
@@ -259,7 +260,10 @@ export const SceneCard: React.FC<SceneCardProps> = ({
 
         {scene.status === 'ready' && (
           <button
-            onClick={() => setShowPreview(!showPreview)}
+            onClick={() => {
+              if (!showPreview) setCardVersion(Date.now());
+              setShowPreview(!showPreview);
+            }}
             className="p-1.5 rounded-xl bg-[#181b22] hover:bg-[#232834] text-neutral-300 border border-[#2d3442] text-xs transition-all"
             title="Preview animation"
           >
@@ -273,7 +277,8 @@ export const SceneCard: React.FC<SceneCardProps> = ({
         <div className="mt-2.5 flex flex-col gap-2">
           <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-[#1f242d] bg-black">
             <iframe
-              src={`${API_BASE}/${projectId}/scenes/${scene.index}/preview?t=${Date.now()}`}
+              key={`card-preview-${scene.index}-${cardVersion}`}
+              src={`${API_BASE}/${projectId}/scenes/${scene.index}/preview?v=${cardVersion}`}
               title={`Preview Scene ${scene.index}`}
               className="w-full h-full border-0"
               sandbox="allow-scripts allow-same-origin"

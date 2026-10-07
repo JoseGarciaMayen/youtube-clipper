@@ -8,7 +8,7 @@ import { RenderBar } from './components/RenderBar';
 import { TerminalPanel } from './components/TerminalPanel';
 import { fetchProject, updateTimeline, generateScene, triggerRender, uploadCustomScene, openProjectFolder, renameProject, deleteProject } from './services/api';
 import { SceneItem, WebSocketEvent } from './types';
-import { Sparkles, Layers, Sliders, Eye, Maximize2, X, FolderOpen, ArrowLeft, Pencil, Check } from 'lucide-react';
+import { Sparkles, Layers, Sliders, Eye, Maximize2, X, FolderOpen, ArrowLeft, Pencil, Check, RotateCcw } from 'lucide-react';
 import { API_BASE } from './services/api';
 
 export const App: React.FC = () => {
@@ -25,6 +25,8 @@ export const App: React.FC = () => {
   // Active scene for large desktop live preview
   const [selectedSceneIndex, setSelectedSceneIndex] = useState<number>(1);
   const [isFullscreenStage, setIsFullscreenStage] = useState(false);
+  // Stable preview versions per scene to prevent iframe reload loops on audio tick
+  const [stagePreviewVersions, setStagePreviewVersions] = useState<Record<number, number>>({});
 
   // Edit Scene Modal state
   const [editingScene, setEditingScene] = useState<SceneItem | null>(null);
@@ -98,6 +100,7 @@ export const App: React.FC = () => {
             fetchProject(projectId).then((p) => setScenes(p.scenes));
           } else if (data.type === 'opencode_complete' && data.scene_index !== undefined) {
             fetchProject(projectId).then((p) => setScenes(p.scenes));
+            setStagePreviewVersions((prev) => ({ ...prev, [data.scene_index!]: Date.now() }));
             if (data.message) {
               setLogs((prev) => [...prev.slice(-100), data.message]);
             }
@@ -288,6 +291,7 @@ export const App: React.FC = () => {
       await uploadCustomScene(projectId, sceneIdx, file);
       const updated = await fetchProject(projectId);
       setScenes(updated.scenes);
+      setStagePreviewVersions((prev) => ({ ...prev, [sceneIdx]: Date.now() }));
     } catch (err: any) {
       alert(`Failed to import scene HTML: ${err.message}`);
     }
@@ -333,6 +337,7 @@ export const App: React.FC = () => {
       setActiveClipScene({ id: scene.id, start: scene.start, end: scene.end });
       setSeekTime(scene.start);
       setSelectedSceneIndex(scene.index);
+      setStagePreviewVersions((prev) => ({ ...prev, [scene.index]: Date.now() }));
     }
   };
 
@@ -341,6 +346,17 @@ export const App: React.FC = () => {
       handleBackToProjects();
     }
   };
+
+  // Follow active scene during audio playback without restarting animation on every frame
+  useEffect(() => {
+    if (isPlaying) {
+      const activeSc = scenes.find((s) => currentTime >= s.start && currentTime < s.end);
+      if (activeSc && activeSc.index !== selectedSceneIndex) {
+        setSelectedSceneIndex(activeSc.index);
+        setStagePreviewVersions((prev) => ({ ...prev, [activeSc.index]: Date.now() }));
+      }
+    }
+  }, [isPlaying, currentTime, scenes, selectedSceneIndex]);
 
   const [isEditingProjectName, setIsEditingProjectName] = useState(false);
   const [editProjectNameInput, setEditProjectNameInput] = useState('');
@@ -564,6 +580,15 @@ export const App: React.FC = () => {
                     Scene #{activeDesktopScene.index.toString().padStart(2, '0')} ({activeDesktopScene.duration.toFixed(1)}s)
                   </span>
                 )}
+                {activeDesktopScene?.status === 'ready' && (
+                  <button
+                    onClick={() => setStagePreviewVersions((prev) => ({ ...prev, [activeDesktopScene.index]: Date.now() }))}
+                    className="p-1 rounded-md text-neutral-400 hover:text-blue-400 hover:bg-[#181b22] transition-colors"
+                    title="Reiniciar animación de la escena"
+                  >
+                    <RotateCcw size={12} />
+                  </button>
+                )}
                 <button
                   onClick={() => setIsFullscreenStage(true)}
                   className="p-1 rounded-md text-neutral-400 hover:text-blue-400 hover:bg-[#181b22] transition-colors"
@@ -578,7 +603,8 @@ export const App: React.FC = () => {
             <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-[#1f242d] bg-black shadow-inner flex items-center justify-center">
               {activeDesktopScene?.status === 'ready' ? (
                 <iframe
-                  src={`${API_BASE}/${projectId}/scenes/${activeDesktopScene.index}/preview?t=${Date.now()}`}
+                  key={`stage-preview-${activeDesktopScene.index}-${stagePreviewVersions[activeDesktopScene.index] || 1}`}
+                  src={`${API_BASE}/${projectId}/scenes/${activeDesktopScene.index}/preview?v=${stagePreviewVersions[activeDesktopScene.index] || 1}`}
                   title={`Stage Scene ${activeDesktopScene.index}`}
                   className="w-full h-full border-0"
                   sandbox="allow-scripts allow-same-origin"
