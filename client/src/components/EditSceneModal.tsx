@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { X, Play, Pause, Check, Volume2, MoveHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Play, Pause, Check, Volume2, MoveHorizontal, ChevronLeft, ChevronRight, Activity } from 'lucide-react';
 import { SceneItem } from '../types';
 import { API_BASE } from '../services/api';
 
@@ -24,16 +24,51 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
 }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const trackRef = useRef<HTMLDivElement | null>(null);
+  const waveformCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentPlayTime, setCurrentPlayTime] = useState(scene.start);
   const [start, setStart] = useState(scene.start);
   const [end, setEnd] = useState(scene.end);
 
-  // Zoomed window state (defaults to ~10s around scene)
-  const WINDOW_SPAN = 12; // 12 seconds visible window
+  // AudioBuffer for waveform extraction
+  const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
+  const [isLoadingWaveform, setIsLoadingWaveform] = useState(false);
+
+  // Zoomed window state (defaults to ~12s around scene)
+  const WINDOW_SPAN = 12;
   const [windowCenter, setWindowCenter] = useState((scene.start + scene.end) / 2);
 
   const [draggingHandle, setDraggingHandle] = useState<'start' | 'end' | 'playhead' | null>(null);
+
+  // Fetch & decode audio file for waveform rendering
+  useEffect(() => {
+    if (!isOpen || !projectId) return;
+
+    let isMounted = true;
+    setIsLoadingWaveform(true);
+
+    fetch(`${API_BASE}/${projectId}/audio`)
+      .then((res) => res.arrayBuffer())
+      .then((arrayBuffer) => {
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        return audioCtx.decodeAudioData(arrayBuffer);
+      })
+      .then((decoded) => {
+        if (isMounted) {
+          setAudioBuffer(decoded);
+          setIsLoadingWaveform(false);
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not decode audio data for waveform:', err);
+        if (isMounted) setIsLoadingWaveform(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, projectId]);
 
   useEffect(() => {
     setStart(scene.start);
@@ -73,12 +108,72 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
     };
   }, [start, end, windowCenter]);
 
-  if (!isOpen) return null;
-
   // Viewport calculation
   const winStart = Math.max(minStart, windowCenter - WINDOW_SPAN / 2);
   const winEnd = Math.min(maxEnd, winStart + WINDOW_SPAN);
   const currentSpan = Math.max(winEnd - winStart, 1);
+
+  // Draw the waveform whenever window or audioBuffer updates
+  useEffect(() => {
+    const canvas = waveformCanvasRef.current;
+    if (!canvas || !audioBuffer) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const width = canvas.width;
+    const height = canvas.height;
+    ctx.clearRect(0, 0, width, height);
+
+    const channelData = audioBuffer.getChannelData(0);
+    const sampleRate = audioBuffer.sampleRate;
+
+    const startSample = Math.floor(winStart * sampleRate);
+    const endSample = Math.floor(winEnd * sampleRate);
+    const totalSamplesInView = endSample - startSample;
+
+    if (totalSamplesInView <= 0) return;
+
+    const samplesPerPixel = Math.max(1, Math.floor(totalSamplesInView / width));
+    const centerY = height / 2;
+
+    // Draw baseline
+    ctx.fillStyle = '#1e242d';
+    ctx.fillRect(0, centerY - 0.5, width, 1);
+
+    // Draw sound wave bars
+    ctx.fillStyle = '#3b82f6'; // Bright crisp blue wave
+
+    for (let x = 0; x < width; x++) {
+      const idx = startSample + x * samplesPerPixel;
+      if (idx < 0 || idx >= channelData.length) continue;
+
+      let min = 1.0;
+      let max = -1.0;
+
+      for (let j = 0; j < samplesPerPixel; j += Math.max(1, Math.floor(samplesPerPixel / 10))) {
+        const val = channelData[idx + j];
+        if (val < min) min = val;
+        if (val > max) max = val;
+      }
+
+      const amp = Math.max(Math.abs(min), Math.abs(max));
+      const barHeight = Math.max(2, amp * height * 0.85);
+      const y = centerY - barHeight / 2;
+
+      // Color variation: highlight inside [start, end]
+      const curTime = winStart + (x / width) * currentSpan;
+      if (curTime >= start && curTime <= end) {
+        ctx.fillStyle = '#60a5fa'; // Highlighted active clip
+      } else {
+        ctx.fillStyle = '#263040'; // Outside clip
+      }
+
+      ctx.fillRect(x, y, 1.5, barHeight);
+    }
+  }, [audioBuffer, winStart, winEnd, start, end, currentSpan]);
+
+  if (!isOpen) return null;
 
   const timeToPct = (t: number) => {
     return Math.max(0, Math.min(100, ((t - winStart) / currentSpan) * 100));
@@ -180,7 +275,7 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
         <div className="flex items-center justify-between border-b border-[#1f242d] pb-3">
           <div className="flex items-center gap-2">
             <span className="text-blue-500 font-mono font-bold text-base">Scene #{scene.index.toString().padStart(2, '0')}</span>
-            <span className="text-xs text-neutral-400">Kdenlive-Style Precision Trim (~10s Window)</span>
+            <span className="text-xs text-neutral-400">Audio Waveform Precision Trim</span>
           </div>
           <button
             onClick={() => {
@@ -213,7 +308,7 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
           </div>
         </div>
 
-        {/* Zoomed Timeline Track Window (~10-12 seconds span) */}
+        {/* Zoomed Timeline Track with REAL AUDIO WAVEFORM */}
         <div className="flex flex-col gap-1.5 select-none">
           <div className="flex items-center justify-between text-[11px] text-neutral-400 font-mono">
             <button
@@ -223,8 +318,9 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
             >
               <ChevronLeft size={12} /> -4s
             </button>
-            <span className="text-neutral-500">
-              Window: {winStart.toFixed(1)}s — {winEnd.toFixed(1)}s
+            <span className="text-neutral-500 flex items-center gap-1.5">
+              <Activity size={12} className="text-blue-400" />
+              {isLoadingWaveform ? 'Decoding waveform...' : `Window: ${winStart.toFixed(1)}s — ${winEnd.toFixed(1)}s`}
             </span>
             <button
               onClick={() => shiftWindow(4)}
@@ -235,17 +331,25 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
             </button>
           </div>
 
-          {/* Interactive Multi-Handle Track */}
+          {/* Interactive Multi-Handle Track with Canvas Waveform */}
           <div
             ref={trackRef}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
-            className="relative h-20 bg-[#090a0f] rounded-xl border border-[#1f242d] overflow-hidden cursor-crosshair touch-none"
+            className="relative h-24 bg-[#090a0f] rounded-xl border border-[#1f242d] overflow-hidden cursor-crosshair touch-none"
           >
+            {/* Real Waveform Canvas */}
+            <canvas
+              ref={waveformCanvasRef}
+              width={600}
+              height={96}
+              className="absolute inset-0 w-full h-full pointer-events-none"
+            />
+
             {/* Timeline Tick Marks (every 1 second) */}
-            <div className="absolute inset-0 pointer-events-none flex justify-between px-2 opacity-20">
+            <div className="absolute inset-0 pointer-events-none flex justify-between px-2 opacity-25">
               {Array.from({ length: 11 }).map((_, i) => (
-                <div key={i} className="h-full w-[1px] bg-neutral-400 flex flex-col justify-between py-1">
+                <div key={i} className="h-full w-[1px] bg-neutral-500 flex flex-col justify-between py-1">
                   <span className="text-[8px] font-mono text-neutral-400 -ml-2">
                     {(winStart + (i * currentSpan) / 10).toFixed(0)}s
                   </span>
@@ -253,9 +357,9 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
               ))}
             </div>
 
-            {/* Active Scene Highlight Block */}
+            {/* Active Scene Highlight Tint */}
             <div
-              className="absolute top-0 bottom-0 bg-blue-600/20 border-t-2 border-b-2 border-blue-500/80 pointer-events-none"
+              className="absolute top-0 bottom-0 bg-blue-500/10 border-t-2 border-b-2 border-blue-500/60 pointer-events-none"
               style={{
                 left: `${timeToPct(start)}%`,
                 width: `${Math.max(0, timeToPct(end) - timeToPct(start))}%`,
@@ -265,13 +369,13 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
             {/* Left Boundary Handle (Start) */}
             <div
               onPointerDown={handlePointerDown('start')}
-              className="absolute top-0 bottom-0 w-4 -ml-2 z-20 cursor-ew-resize flex items-center justify-center group"
+              className="absolute top-0 bottom-0 w-5 -ml-2.5 z-20 cursor-ew-resize flex items-center justify-center group"
               style={{ left: `${timeToPct(start)}%` }}
             >
               <div className="w-1.5 h-full bg-blue-500 rounded-sm group-hover:bg-blue-400 shadow-md flex items-center justify-center">
-                <div className="w-0.5 h-4 bg-white/60 rounded" />
+                <div className="w-0.5 h-5 bg-white/70 rounded" />
               </div>
-              <div className="absolute -top-5 font-mono text-[9px] bg-blue-600 text-white px-1 rounded pointer-events-none whitespace-nowrap">
+              <div className="absolute -top-5 font-mono text-[9px] bg-blue-600 text-white px-1 rounded pointer-events-none whitespace-nowrap shadow">
                 {start.toFixed(2)}s
               </div>
             </div>
@@ -279,13 +383,13 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
             {/* Right Boundary Handle (End) */}
             <div
               onPointerDown={handlePointerDown('end')}
-              className="absolute top-0 bottom-0 w-4 -ml-2 z-20 cursor-ew-resize flex items-center justify-center group"
+              className="absolute top-0 bottom-0 w-5 -ml-2.5 z-20 cursor-ew-resize flex items-center justify-center group"
               style={{ left: `${timeToPct(end)}%` }}
             >
               <div className="w-1.5 h-full bg-blue-500 rounded-sm group-hover:bg-blue-400 shadow-md flex items-center justify-center">
-                <div className="w-0.5 h-4 bg-white/60 rounded" />
+                <div className="w-0.5 h-5 bg-white/70 rounded" />
               </div>
-              <div className="absolute -top-5 font-mono text-[9px] bg-blue-600 text-white px-1 rounded pointer-events-none whitespace-nowrap">
+              <div className="absolute -top-5 font-mono text-[9px] bg-blue-600 text-white px-1 rounded pointer-events-none whitespace-nowrap shadow">
                 {end.toFixed(2)}s
               </div>
             </div>
@@ -300,8 +404,9 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
               <div className="absolute top-0 w-2.5 h-2.5 -mt-1 bg-rose-500 rotate-45" />
             </div>
           </div>
+
           <span className="text-[10px] text-neutral-500 text-center">
-            Drag blue side handles to trim start/end. Drag red playhead to scrub.
+            Audio waveform synchronized with visible window. Drag handles to trim with phonetic precision.
           </span>
         </div>
 
