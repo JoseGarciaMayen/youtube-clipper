@@ -7,7 +7,7 @@ import { RenderBar } from './components/RenderBar';
 import { TerminalPanel } from './components/TerminalPanel';
 import { fetchProject, updateTimeline, generateScene, triggerRender } from './services/api';
 import { SceneItem, WebSocketEvent } from './types';
-import { Sparkles, Layers, Sliders, Eye } from 'lucide-react';
+import { Sparkles, Layers, Sliders, Eye, Maximize2, X } from 'lucide-react';
 import { API_BASE } from './services/api';
 
 export const App: React.FC = () => {
@@ -22,6 +22,7 @@ export const App: React.FC = () => {
 
   // Active scene for large desktop live preview
   const [selectedSceneIndex, setSelectedSceneIndex] = useState<number>(1);
+  const [isFullscreenStage, setIsFullscreenStage] = useState(false);
 
   // Edit Scene Modal state
   const [editingScene, setEditingScene] = useState<SceneItem | null>(null);
@@ -419,11 +420,22 @@ export const App: React.FC = () => {
                   Live Visual Stage
                 </span>
               </div>
-              {activeDesktopScene && (
-                <span className="text-[11px] font-mono text-neutral-400">
-                  Scene #{activeDesktopScene.index.toString().padStart(2, '0')} ({activeDesktopScene.duration.toFixed(1)}s)
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {activeDesktopScene && (
+                  <span className="text-[11px] font-mono text-neutral-400">
+                    Scene #{activeDesktopScene.index.toString().padStart(2, '0')} ({activeDesktopScene.duration.toFixed(1)}s)
+                  </span>
+                )}
+                {activeDesktopScene?.status === 'ready' && (
+                  <button
+                    onClick={() => setIsFullscreenStage(true)}
+                    className="p-1 rounded-md text-neutral-400 hover:text-blue-400 hover:bg-[#181b22] transition-colors"
+                    title="View Fullscreen"
+                  >
+                    <Maximize2 size={13} />
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* 16:9 Big Preview Screen */}
@@ -500,6 +512,37 @@ export const App: React.FC = () => {
           />
         </div>
       </div>
+
+      {/* Fullscreen Stage Modal */}
+      {isFullscreenStage && activeDesktopScene && (
+        <div className="fixed inset-0 z-50 bg-black/95 flex flex-col p-4 animate-in fade-in duration-200">
+          <div className="flex items-center justify-between pb-3 px-2">
+            <div className="flex items-center gap-3">
+              <span className="font-mono font-bold text-sm text-blue-400">
+                Scene #{activeDesktopScene.index.toString().padStart(2, '0')}
+              </span>
+              <span className="text-xs text-neutral-400 font-mono">
+                {activeDesktopScene.start.toFixed(1)}s - {activeDesktopScene.end.toFixed(1)}s ({activeDesktopScene.duration.toFixed(1)}s)
+              </span>
+            </div>
+            <button
+              onClick={() => setIsFullscreenStage(false)}
+              className="p-1.5 rounded-lg bg-[#181b22] text-neutral-400 hover:text-white border border-[#2d3442] transition-colors"
+              title="Close Fullscreen"
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <div className="flex-1 w-full flex items-center justify-center rounded-2xl overflow-hidden border border-[#1f242d] bg-black">
+            <iframe
+              src={`${API_BASE}/${projectId}/scenes/${activeDesktopScene.index}/preview?t=${Date.now()}`}
+              title={`Fullscreen Scene ${activeDesktopScene.index}`}
+              className="w-full h-full border-0"
+              sandbox="allow-scripts allow-same-origin"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Precision Trim Modal */}
       {editingScene && (

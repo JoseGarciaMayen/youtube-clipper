@@ -34,6 +34,10 @@ export const AudioTimeline: React.FC<AudioTimelineProps> = ({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isTapPressed, setIsTapPressed] = useState(false);
+  const clipRangeRef = useRef(clipRange);
+  useEffect(() => {
+    clipRangeRef.current = clipRange;
+  }, [clipRange]);
 
   useEffect(() => {
     if (seekTime !== null && audioRef.current) {
@@ -50,16 +54,19 @@ export const AudioTimeline: React.FC<AudioTimelineProps> = ({
     const loop = () => {
       const audio = audioRef.current;
       if (audio && !audio.paused) {
-        onTimeUpdate(audio.currentTime);
+        const ct = audio.currentTime;
+        onTimeUpdate(ct);
 
-        // If playing a specific clipped scene, stop precisely at scene.end
-        if (clipRange && audio.currentTime >= clipRange.end) {
+        const activeRange = clipRangeRef.current;
+        // If playing a specific clipped scene, stop precisely at scene.end ONCE
+        if (activeRange && ct >= activeRange.end) {
           audio.pause();
-          audio.currentTime = clipRange.start;
-          onTimeUpdate(clipRange.start);
+          audio.currentTime = activeRange.start;
+          onTimeUpdate(activeRange.start);
           setIsPlaying(false);
           onPlayStateChange?.(false);
           onClipEnded?.();
+          return; // Stop this frame execution
         }
       }
       animId = requestAnimationFrame(loop);

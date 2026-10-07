@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { X, Play, Pause, Check, Volume2, MoveHorizontal, ChevronLeft, ChevronRight, Activity } from 'lucide-react';
+import { X, Play, Pause, Check, Volume2, MoveHorizontal, ChevronLeft, ChevronRight, Activity, Repeat } from 'lucide-react';
 import { SceneItem } from '../types';
 import { API_BASE } from '../services/api';
 
@@ -27,6 +27,7 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
   const waveformCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isLooping, setIsLooping] = useState(false);
   const [currentPlayTime, setCurrentPlayTime] = useState(scene.start);
   const [start, setStart] = useState(scene.start);
   const [end, setEnd] = useState(scene.end);
@@ -92,11 +93,18 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
           setWindowCenter(ct);
         }
 
-        // Loop precisely within clip range
+        // Stop or loop precisely within clip range
         if (ct >= end) {
-          audio.currentTime = start;
-          setCurrentPlayTime(start);
-          audio.play().catch(() => {});
+          if (isLooping) {
+            audio.currentTime = start;
+            setCurrentPlayTime(start);
+            audio.play().catch(() => {});
+          } else {
+            audio.pause();
+            audio.currentTime = start;
+            setCurrentPlayTime(start);
+            setIsPlaying(false);
+          }
         }
       }
       animId = requestAnimationFrame(updateLoop);
@@ -116,7 +124,7 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
         audio.removeEventListener('ended', handleEnded);
       }
     };
-  }, [start, end, windowCenter]);
+  }, [start, end, windowCenter, isLooping]);
 
   // Viewport calculation
   const winStart = Math.max(minStart, windowCenter - WINDOW_SPAN / 2);
@@ -318,13 +326,28 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
 
         {/* Audio Player & Loop Status */}
         <div className="bg-[#090a0f] border border-[#1f242d] rounded-xl p-3 flex items-center justify-between">
-          <button
-            onClick={togglePlay}
-            className="w-10 h-10 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-md active:scale-95 transition-all"
-            title="Loop audio segment"
-          >
-            {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={togglePlay}
+              className="w-10 h-10 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-md active:scale-95 transition-all"
+              title="Play audio clip"
+            >
+              {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
+            </button>
+
+            <button
+              onClick={() => setIsLooping(!isLooping)}
+              className={`p-2 rounded-lg border text-xs flex items-center gap-1.5 transition-all ${
+                isLooping
+                  ? 'bg-blue-600/20 text-blue-400 border-blue-500/50'
+                  : 'bg-[#181b22] text-neutral-400 border-[#2d3442] hover:text-neutral-200'
+              }`}
+              title={isLooping ? 'Looping enabled' : 'Click to enable loop'}
+            >
+              <Repeat size={13} />
+              <span className="text-[11px]">{isLooping ? 'Loop ON' : 'Loop OFF'}</span>
+            </button>
+          </div>
 
           <div className="flex flex-col text-right font-mono">
             <span className="text-sm font-semibold text-neutral-100">
