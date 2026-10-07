@@ -5,9 +5,9 @@ import { SceneCard } from './components/SceneCard';
 import { EditSceneModal } from './components/EditSceneModal';
 import { RenderBar } from './components/RenderBar';
 import { TerminalPanel } from './components/TerminalPanel';
-import { fetchProject, updateTimeline, generateScene, triggerRender, uploadCustomScene, openProjectFolder } from './services/api';
+import { fetchProject, updateTimeline, generateScene, triggerRender, uploadCustomScene, openProjectFolder, renameProject, deleteProject } from './services/api';
 import { SceneItem, WebSocketEvent } from './types';
-import { Sparkles, Layers, Sliders, Eye, Maximize2, X, FolderOpen, ArrowLeft } from 'lucide-react';
+import { Sparkles, Layers, Sliders, Eye, Maximize2, X, FolderOpen, ArrowLeft, Pencil, Check } from 'lucide-react';
 import { API_BASE } from './services/api';
 
 export const App: React.FC = () => {
@@ -327,6 +327,29 @@ export const App: React.FC = () => {
     }
   };
 
+  const [isEditingProjectName, setIsEditingProjectName] = useState(false);
+  const [editProjectNameInput, setEditProjectNameInput] = useState('');
+
+  const handleStartRename = () => {
+    setEditProjectNameInput(projectName);
+    setIsEditingProjectName(true);
+  };
+
+  const handleSaveProjectName = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!projectId || !editProjectNameInput.trim()) {
+      setIsEditingProjectName(false);
+      return;
+    }
+    try {
+      const res = await renameProject(projectId, editProjectNameInput.trim());
+      setProjectName(res.name);
+      setIsEditingProjectName(false);
+    } catch (err: any) {
+      alert(`Error al cambiar nombre: ${err.message}`);
+    }
+  };
+
   const handleBackToProjects = () => {
     localStorage.removeItem('math_clipper_active_project');
     setProjectId(null);
@@ -373,12 +396,47 @@ export const App: React.FC = () => {
             <ArrowLeft size={14} />
           </button>
           <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-sm shadow-blue-500/50" />
-          <div className="flex items-baseline gap-2">
-            <h1 className="font-semibold text-sm tracking-wide text-neutral-100">
-              {projectName || 'Math Clipper Studio'}
-            </h1>
-            <span className="text-[10px] font-mono text-neutral-500">({projectId})</span>
-          </div>
+          
+          {isEditingProjectName ? (
+            <form onSubmit={handleSaveProjectName} className="flex items-center gap-1.5">
+              <input
+                type="text"
+                value={editProjectNameInput}
+                onChange={(e) => setEditProjectNameInput(e.target.value)}
+                autoFocus
+                className="bg-[#12141a] border border-blue-500 rounded-md px-2 py-0.5 text-xs text-white focus:outline-none"
+              />
+              <button
+                type="submit"
+                className="p-1 rounded bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+                title="Guardar nombre"
+              >
+                <Check size={12} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsEditingProjectName(false)}
+                className="p-1 rounded bg-[#181b22] hover:bg-[#232834] text-neutral-400 transition-colors"
+                title="Cancelar"
+              >
+                <X size={12} />
+              </button>
+            </form>
+          ) : (
+            <div className="flex items-baseline gap-2 group">
+              <h1 className="font-semibold text-sm tracking-wide text-neutral-100">
+                {projectName || 'Math Clipper Studio'}
+              </h1>
+              <button
+                onClick={handleStartRename}
+                className="text-neutral-500 hover:text-blue-400 opacity-60 hover:opacity-100 transition-opacity"
+                title="Editar nombre del proyecto"
+              >
+                <Pencil size={11} />
+              </button>
+              <span className="text-[10px] font-mono text-neutral-500">({projectId})</span>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2.5">
           <button

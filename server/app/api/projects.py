@@ -3,6 +3,8 @@ import json
 import uuid
 import shutil
 import asyncio
+from typing import Optional
+from pydantic import BaseModel
 from pathlib import Path
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse
@@ -15,6 +17,9 @@ from server.app.websocket_manager import ws_manager
 from server.app.transcription_service import transcribe_clip_async
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
+
+class ProjectUpdate(BaseModel):
+    name: Optional[str] = None
 
 def get_project_dir(project_id: str) -> Path:
     p = PROJECTS_DIR / project_id
@@ -113,6 +118,32 @@ async def get_project(project_id: str):
     final_video = p_dir / "output_final.mp4"
     data["has_rendered_video"] = final_video.exists()
     return data
+
+@router.patch("/{project_id}")
+async def update_project(project_id: str, req: ProjectUpdate):
+    """Updates project metadata, such as renaming the project."""
+    p_dir = get_project_dir(project_id)
+    timeline_file = p_dir / "timeline.json"
+    if not timeline_file.exists():
+        raise HTTPException(status_code=404, detail="Timeline not found")
+
+    with open(timeline_file, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    if req.name is not None and req.name.strip():
+        data["name"] = req.name.strip()
+
+    with open(timeline_file, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+    return {"status": "ok", "project_id": project_id, "name": data.get("name")}
+
+@router.delete("/{project_id}")
+async def delete_project(project_id: str):
+    """Deletes an entire project directory and all its files."""
+    p_dir = get_project_dir(project_id)
+    shutil.rmtree(p_dir, ignore_errors=True)
+    return {"status": "ok", "message": f"Project {project_id} deleted"}
 
 @router.get("/{project_id}/audio")
 async def get_project_audio(project_id: str):

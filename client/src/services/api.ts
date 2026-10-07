@@ -92,3 +92,21 @@ export async function openProjectFolder(projectId: string): Promise<{ path: stri
   if (!res.ok) throw new Error('Failed to open folder');
   return res.json();
 }
+
+export async function deleteProject(projectId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/${projectId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to delete project');
+}
+
+export async function renameProject(projectId: string, name: string): Promise<{ status: string; project_id: string; name: string }> {
+  const res = await fetch(`${API_BASE}/${projectId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) throw new Error('Failed to rename project');
+  return res.json();
+}
+
