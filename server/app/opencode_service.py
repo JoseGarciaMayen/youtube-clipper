@@ -19,12 +19,13 @@ CRITICAL SPECIFICATIONS FOR THIS HTML ANIMATION:
 6. NO interactive buttons, NO scrollbars (overflow: hidden), and NO external assets like images/fonts that require local hosting.
 """
 
-def build_scene_prompt(scene_idx: int, duration: float, prompt_visual: str, prompt_voice: str, refinement: str = None, existing_code: str = None) -> str:
+def build_scene_prompt(project_dir: Path, scene_idx: int, duration: float, prompt_visual: str, prompt_voice: str, refinement: str = None, existing_code: str = None) -> str:
     scene_file_name = f"scene_{scene_idx:02d}.html"
+    abs_scene_file = (project_dir / "scenes" / scene_file_name).resolve()
     
     if refinement and existing_code:
         return f"""
-You are refining an existing HTML math animation file `{scene_file_name}`.
+You are refining an existing HTML math animation file `{abs_scene_file}`.
 
 CURRENT CODE:
 ```html
@@ -39,7 +40,7 @@ Voice locution for this segment: "{prompt_voice}"
 Duration must remain: {duration:.2f} seconds.
 
 TASK:
-Produce the revised complete standalone HTML file and write it directly to `scenes/{scene_file_name}`.
+Produce the revised complete standalone HTML file and write it directly to `{abs_scene_file}`.
 Ensure:
 - Exact {duration:.2f}s timeline with freeze-frame at the end.
 - Dark theme background #0b0f19.
@@ -47,7 +48,7 @@ Ensure:
 """
 
     return f"""
-Create a pedagogical, visually captivating math/logic animation file `scenes/{scene_file_name}`.
+Create a pedagogical, visually captivating math/logic animation file `{abs_scene_file}`.
 
 SCENE CONTEXT:
 - Scene Number: #{scene_idx}
@@ -58,7 +59,7 @@ SCENE CONTEXT:
 {SYSTEM_MATH_RULES.format(duration=duration)}
 
 TASK:
-Generate the complete HTML code and save it to `scenes/{scene_file_name}`.
+Generate the complete HTML code and save it directly to `{abs_scene_file}`.
 Make sure the file starts with <!DOCTYPE html> and is 100% self-contained and working.
 """
 
@@ -71,6 +72,7 @@ async def run_opencode_generation(project_dir: Path, project_id: str, scene_idx:
         existing_code = scene_path.read_text(encoding="utf-8")
         
     full_prompt = build_scene_prompt(
+        project_dir=project_dir,
         scene_idx=scene_idx,
         duration=duration,
         prompt_visual=prompt_visual,
