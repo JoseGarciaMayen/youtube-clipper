@@ -142,32 +142,38 @@ export const SceneCard: React.FC<SceneCardProps> = ({
         </div>
       </div>
 
-      {/* Auto Speech Recognition Tag / Narration Line */}
-      {scene.prompt_voice ? (
-        <div className="mt-2 px-2.5 py-1.5 rounded-lg bg-[#090a0f] border border-[#1f242d] flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 text-[11px] text-neutral-300 truncate font-mono">
-            <span className="text-[10px] text-blue-400 font-semibold select-none shrink-0">[VOICE]</span>
-            <input
-              type="text"
-              value={scene.prompt_voice}
-              onChange={(e) => onUpdate({ ...scene, prompt_voice: e.target.value })}
-              className="bg-transparent border-0 text-neutral-200 text-[11px] focus:outline-none w-full"
-              title="Click to edit speech transcript"
-            />
-          </div>
+      {/* Spoken Narration Cue */}
+      <div className="mt-2 px-2.5 py-1.5 rounded-lg bg-[#090a0f] border border-[#1f242d] flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 text-[11px] text-neutral-300 w-full font-mono">
+          <span className="text-[10px] text-blue-400 font-semibold select-none shrink-0" title="Auto-transcribed audio or custom voice cue">[VOICE]</span>
+          <input
+            type="text"
+            value={scene.prompt_voice}
+            placeholder={scene.prompt_voice ? "" : "Transcribing spoken audio or type here..."}
+            onChange={(e) => onUpdate({ ...scene, prompt_voice: e.target.value })}
+            className="bg-transparent border-0 text-neutral-200 text-[11px] focus:outline-none w-full"
+            title="Spoken audio cue passed to animation generator"
+          />
         </div>
-      ) : (
-        <div className="mt-1 text-[10px] text-neutral-600 italic px-1 flex items-center gap-1 font-mono">
-          <span>Transcribing spoken audio...</span>
-        </div>
-      )}
+        <button
+          onClick={() => toggleSpeechRecognition('voice')}
+          className={`p-1 rounded-md border text-xs shrink-0 transition-all ${
+            isListening && activeSpeechField === 'voice'
+              ? 'bg-rose-500/20 text-rose-400 border-rose-500'
+              : 'bg-transparent border-transparent text-neutral-500 hover:text-blue-400'
+          }`}
+          title="Dictate voice prompt"
+        >
+          {isListening && activeSpeechField === 'voice' ? <MicOff size={12} /> : <Mic size={12} />}
+        </button>
+      </div>
 
       {/* Main Single Row Visual Prompt */}
-      <div className="mt-2.5 flex items-center gap-1.5">
+      <div className="mt-2 flex items-center gap-1.5">
         <input
           type="text"
           value={scene.prompt_visual}
-          placeholder="Visual prompt..."
+          placeholder="Visual prompt (e.g. Monty Hall problem with 3 glowing doors)..."
           onChange={(e) => onUpdate({ ...scene, prompt_visual: e.target.value })}
           className="flex-1 bg-[#090a0f] border border-[#1f242d] rounded-xl px-2.5 py-1.5 text-xs text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-blue-500"
         />
@@ -179,7 +185,7 @@ export const SceneCard: React.FC<SceneCardProps> = ({
               ? 'bg-rose-500/20 text-rose-400 border-rose-500'
               : 'bg-[#090a0f] border-[#1f242d] text-neutral-400 hover:text-blue-400'
           }`}
-          title="Dictate"
+          title="Dictate visual prompt"
         >
           {isListening && activeSpeechField === 'visual' ? <MicOff size={13} /> : <Mic size={13} />}
         </button>
@@ -204,34 +210,6 @@ export const SceneCard: React.FC<SceneCardProps> = ({
           </button>
         )}
       </div>
-
-      {/* Expanded Details */}
-      {isExpanded && (
-        <div className="mt-2.5 pt-2.5 border-t border-[#1f242d] flex flex-col gap-2 text-xs">
-          <div className="flex flex-col gap-1">
-            <span className="text-[11px] text-neutral-500">Audio Narration Cue</span>
-            <div className="flex gap-1.5">
-              <input
-                type="text"
-                value={scene.prompt_voice}
-                placeholder="Spoken words in this segment..."
-                onChange={(e) => onUpdate({ ...scene, prompt_voice: e.target.value })}
-                className="flex-1 bg-[#090a0f] border border-[#1f242d] rounded-xl px-2.5 py-1 text-xs text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-blue-500"
-              />
-              <button
-                onClick={() => toggleSpeechRecognition('voice')}
-                className={`p-1.5 rounded-xl border ${
-                  isListening && activeSpeechField === 'voice'
-                    ? 'bg-rose-500/20 text-rose-400 border-rose-500'
-                    : 'bg-[#090a0f] border-[#1f242d] text-neutral-400 hover:text-blue-400'
-                }`}
-              >
-                {isListening && activeSpeechField === 'voice' ? <MicOff size={13} /> : <Mic size={13} />}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Preview Section */}
       {showPreview && scene.status === 'ready' && (
