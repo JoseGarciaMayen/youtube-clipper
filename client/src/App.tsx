@@ -74,6 +74,13 @@ export const App: React.FC = () => {
             setIsRendering(false);
             setRenderStatusMessage('Error: ' + (data.error || 'Unknown'));
             setLogs((prev) => [...prev, `[ERROR] ${data.error}`]);
+          } else if (data.type === 'scene_transcribed' && data.scene_index !== undefined && data.text) {
+            setScenes((prev) =>
+              prev.map((s) => (s.index === data.scene_index ? { ...s, prompt_voice: data.text || s.prompt_voice } : s))
+            );
+            setLogs((prev) => [...prev, `[Whisper] Scene #${data.scene_index} transcribed: "${data.text}"`]);
+          } else if (data.type === 'timeline_transcription_completed') {
+            fetchProject(projectId).then((p) => setScenes(p.scenes));
           } else if (data.type === 'opencode_complete' && data.scene_index !== undefined) {
             fetchProject(projectId).then((p) => setScenes(p.scenes));
           }

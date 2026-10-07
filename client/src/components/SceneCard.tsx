@@ -142,7 +142,27 @@ export const SceneCard: React.FC<SceneCardProps> = ({
         </div>
       </div>
 
-      {/* Main Single Row Prompt */}
+      {/* Auto Speech Recognition Tag / Narration Line */}
+      {scene.prompt_voice ? (
+        <div className="mt-2 px-2.5 py-1.5 rounded-lg bg-[#090a0f] border border-[#1f242d] flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 text-[11px] text-neutral-300 truncate font-mono">
+            <span className="text-[10px] text-blue-400 font-semibold select-none shrink-0">[VOICE]</span>
+            <input
+              type="text"
+              value={scene.prompt_voice}
+              onChange={(e) => onUpdate({ ...scene, prompt_voice: e.target.value })}
+              className="bg-transparent border-0 text-neutral-200 text-[11px] focus:outline-none w-full"
+              title="Click to edit speech transcript"
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="mt-1 text-[10px] text-neutral-600 italic px-1 flex items-center gap-1 font-mono">
+          <span>Transcribing spoken audio...</span>
+        </div>
+      )}
+
+      {/* Main Single Row Visual Prompt */}
       <div className="mt-2.5 flex items-center gap-1.5">
         <input
           type="text"

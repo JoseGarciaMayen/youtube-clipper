@@ -12,6 +12,7 @@ from server.app.models import TimelineUpdate, SceneGenerateRequest, ProjectStatu
 from server.app.opencode_service import run_opencode_generation
 from server.app.render_service import run_render_pipeline
 from server.app.websocket_manager import ws_manager
+from server.app.transcription_service import transcribe_clip_async
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -89,9 +90,14 @@ async def get_project_audio(project_id: str):
     return FileResponse(audio_file, media_type="audio/mpeg")
 
 @router.put("/{project_id}/timeline")
-async def update_timeline(project_id: str, update: TimelineUpdate):
+async def update_timeline(
+    project_id: str,
+    update: TimelineUpdate,
+    background_tasks: BackgroundTasks
+):
     p_dir = get_project_dir(project_id)
     timeline_file = p_dir / "timeline.json"
+    audio_file = p_dir / "audio.mp3"
     
     current_data = {}
     if timeline_file.exists():
@@ -110,6 +116,43 @@ async def update_timeline(project_id: str, update: TimelineUpdate):
         "type": "timeline_updated",
         "scenes_count": len(scenes_list)
     })
+
+    # Auto-transcribe any scene that has empty prompt_voice in background
+    scenes_to_transcribe = [
+        s for s in scenes_list if not s.get("prompt_voice") and s.get("duration", 0) > 0.3
+    ]
+
+    if scenes_to_transcribe and audio_file.exists():
+        async def _auto_transcribe():
+            updated_any = False
+            for sc in scenes_to_transcribe:
+                idx = sc.get("index")
+                st = sc.get("start", 0.0)
+                dur = sc.get("duration", 5.0)
+
+                text = await transcribe_clip_async(audio_file, st, dur)
+                if text:
+                    # Reload timeline and update scene
+                    if timeline_file.exists():
+                        with open(timeline_file, "r", encoding="utf-8") as f:
+                            tl = json.load(f)
+                        target = next((item for item in tl.get("scenes", []) if item.get("index") == idx), None)
+                        if target and not target.get("prompt_voice"):
+                            target["prompt_voice"] = text
+                            with open(timeline_file, "w", encoding="utf-8") as f:
+                                json.dump(tl, f, indent=2)
+                            updated_any = True
+                            await ws_manager.broadcast_to_project(project_id, {
+                                "type": "scene_transcribed",
+                                "scene_index": idx,
+                                "text": text
+                            })
+            if updated_any:
+                await ws_manager.broadcast_to_project(project_id, {
+                    "type": "timeline_transcription_completed"
+                })
+
+        background_tasks.add_task(_auto_transcribe)
 
     return {"status": "ok", "scenes": scenes_list}
 
