@@ -6,7 +6,8 @@ import { EditSceneModal } from './components/EditSceneModal';
 import { RenderBar } from './components/RenderBar';
 import { fetchProject, updateTimeline, generateScene, triggerRender } from './services/api';
 import { SceneItem, WebSocketEvent } from './types';
-import { Sparkles, Layers } from 'lucide-react';
+import { Sparkles, Layers, Sliders, Eye } from 'lucide-react';
+import { API_BASE } from './services/api';
 
 export const App: React.FC = () => {
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -16,6 +17,9 @@ export const App: React.FC = () => {
   const [hasRenderedVideo, setHasRenderedVideo] = useState(false);
   const [seekTime, setSeekTime] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+
+  // Active scene for large desktop live preview
+  const [selectedSceneIndex, setSelectedSceneIndex] = useState<number>(1);
 
   // Edit Scene Modal state
   const [editingScene, setEditingScene] = useState<SceneItem | null>(null);
@@ -62,7 +66,7 @@ export const App: React.FC = () => {
             setRenderProgress(100);
             setHasRenderedVideo(true);
             setRenderStatusMessage('Render complete');
-            setLogs((prev) => [...prev, '✓ Video successfully rendered.']);
+            setLogs((prev) => [...prev, '✓ Master MP4 finished.']);
           } else if (data.type === 'render_error') {
             setIsRendering(false);
             setRenderStatusMessage('Error: ' + (data.error || 'Unknown'));
@@ -116,6 +120,7 @@ export const App: React.FC = () => {
     };
     const initialScenes = [initialScene];
     setScenes(initialScenes);
+    setSelectedSceneIndex(1);
     updateTimeline(newId, initialScenes);
   };
 
@@ -158,11 +163,11 @@ export const App: React.FC = () => {
       ];
 
       updateTimeline(projectId, reindexed);
+      setSelectedSceneIndex(sceneB.index);
       return reindexed;
     });
   }, [projectId, audioDuration]);
 
-  // Delete scene: Reverts the last cut and merges back into the previous scene
   const handleDeleteScene = (sceneIndex: number) => {
     if (!projectId || scenes.length <= 1) return;
 
@@ -173,7 +178,6 @@ export const App: React.FC = () => {
       const prev = currentScenes[targetIdx - 1];
       const current = currentScenes[targetIdx];
 
-      // Merge back end timestamp
       const mergedPrev: SceneItem = {
         ...prev,
         end: current.end,
@@ -190,6 +194,7 @@ export const App: React.FC = () => {
       ];
 
       updateTimeline(projectId, updated);
+      setSelectedSceneIndex(mergedPrev.index);
       return updated;
     });
   };
@@ -201,7 +206,6 @@ export const App: React.FC = () => {
     updateTimeline(projectId, newScenes);
   };
 
-  // Fine tune scene from modal
   const handleSaveEditedScene = (saved: SceneItem) => {
     if (!projectId) return;
     setScenes((currentScenes) => {
@@ -211,7 +215,6 @@ export const App: React.FC = () => {
       const newScenes = [...currentScenes];
       newScenes[targetIdx] = saved;
 
-      // Adjust adjacent scenes if boundaries changed
       if (targetIdx > 0) {
         newScenes[targetIdx - 1] = {
           ...newScenes[targetIdx - 1],
@@ -258,7 +261,7 @@ export const App: React.FC = () => {
     if (!projectId) return;
     setIsRendering(true);
     setRenderProgress(0);
-    setRenderStatusMessage('Starting render engine...');
+    setRenderStatusMessage('Starting render pipeline...');
     try {
       await triggerRender(projectId);
     } catch (err: any) {
@@ -273,7 +276,6 @@ export const App: React.FC = () => {
 
   const splitPoints = scenes.slice(0, -1).map((s) => s.end);
 
-  // Determine min and max bounds for currently edited scene
   let minStart = 0;
   let maxEnd = audioDuration;
   if (editingScene) {
@@ -282,69 +284,167 @@ export const App: React.FC = () => {
     if (idx < scenes.length - 1) maxEnd = scenes[idx + 1].end - 0.1;
   }
 
+  const activeDesktopScene = scenes.find((s) => s.index === selectedSceneIndex) || scenes[0];
+
   return (
-    <div className="min-h-screen bg-background pb-28 pt-4 px-3 max-w-lg mx-auto flex flex-col gap-4">
-      {/* Header */}
-      <header className="flex items-center justify-between pb-2 border-b border-[#1f242d]">
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-          <h1 className="font-semibold text-sm tracking-wide text-neutral-100">Math Clipper</h1>
+    <div className="min-h-screen bg-[#090a0f] text-slate-100 pb-28 pt-4 px-4 max-w-7xl mx-auto flex flex-col gap-4">
+      {/* Top Header */}
+      <header className="flex items-center justify-between pb-3 border-b border-[#1f242d]">
+        <div className="flex items-center gap-2.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-sm shadow-blue-500/50" />
+          <h1 className="font-semibold text-sm tracking-wide text-neutral-100">Math Clipper Studio</h1>
         </div>
-        <div className="text-[11px] font-mono text-neutral-500">
-          {projectId}
+        <div className="flex items-center gap-3">
+          <div className="text-[11px] font-mono text-neutral-400 bg-[#12141a] px-2.5 py-1 rounded-md border border-[#1f242d]">
+            Project: {projectId}
+          </div>
         </div>
       </header>
 
-      {/* Audio Player & Tap to Split Controller */}
-      <AudioTimeline
-        projectId={projectId}
-        duration={audioDuration}
-        currentTime={currentTime}
-        onTimeUpdate={setCurrentTime}
-        onSplit={handleSplit}
-        splits={splitPoints}
-        seekTime={seekTime}
-        onSeekHandled={() => setSeekTime(null)}
-        onPlayStateChange={setIsPlaying}
-      />
+      {/* Responsive Grid: Mobile stacked, Desktop (lg+) 2 Columns */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {/* Left Column: Audio Timeline & Scene List (lg: 7 cols) */}
+        <div className="lg:col-span-7 flex flex-col gap-4">
+          <AudioTimeline
+            projectId={projectId}
+            duration={audioDuration}
+            currentTime={currentTime}
+            onTimeUpdate={setCurrentTime}
+            onSplit={handleSplit}
+            splits={splitPoints}
+            seekTime={seekTime}
+            onSeekHandled={() => setSeekTime(null)}
+            onPlayStateChange={setIsPlaying}
+          />
 
-      {/* Scenes List Header */}
-      <div className="flex items-center justify-between pt-1">
-        <div className="flex items-center gap-1.5 text-xs text-neutral-400 font-medium">
-          <Layers size={14} className="text-blue-400" />
-          <span>Scenes ({scenes.length})</span>
+          {/* Scenes Section Header */}
+          <div className="flex items-center justify-between pt-1">
+            <div className="flex items-center gap-1.5 text-xs text-neutral-400 font-medium">
+              <Layers size={14} className="text-blue-400" />
+              <span>Timeline Scenes ({scenes.length})</span>
+            </div>
+            <button
+              onClick={handleGenerateAll}
+              className="text-xs px-2.5 py-1 rounded-lg bg-[#181b22] hover:bg-[#232834] text-blue-400 border border-[#2d3442] flex items-center gap-1.5 active:scale-95 transition-all"
+            >
+              <Sparkles size={12} />
+              <span>Generate All</span>
+            </button>
+          </div>
+
+          {/* Scenes Cards List */}
+          <div className="flex flex-col gap-2.5">
+            {scenes.map((scene, idx) => {
+              const isPlayingThisScene =
+                isPlaying && currentTime >= scene.start && currentTime <= scene.end;
+
+              return (
+                <div
+                  key={scene.id || scene.index}
+                  onClick={() => setSelectedSceneIndex(scene.index)}
+                  className={`cursor-pointer transition-all ${
+                    selectedSceneIndex === scene.index ? 'ring-1 ring-blue-500/60 rounded-2xl' : ''
+                  }`}
+                >
+                  <SceneCard
+                    scene={scene}
+                    projectId={projectId}
+                    isLastScene={idx === scenes.length - 1}
+                    canDelete={scenes.length > 1}
+                    isPlayingThisScene={isPlayingThisScene}
+                    onPlayScene={(startTime) => setSeekTime(startTime)}
+                    onEditScene={(sc) => setEditingScene(sc)}
+                    onDeleteScene={handleDeleteScene}
+                    onUpdate={handleUpdateScene}
+                    onGenerate={handleGenerate}
+                  />
+                </div>
+              );
+            })}
+          </div>
         </div>
-        <button
-          onClick={handleGenerateAll}
-          className="text-xs px-2.5 py-1 rounded-lg bg-[#181b22] hover:bg-[#232834] text-blue-400 border border-[#2d3442] flex items-center gap-1.5 active:scale-95 transition-all"
-        >
-          <Sparkles size={12} />
-          <span>Generate All</span>
-        </button>
-      </div>
 
-      {/* Scene Cards with clip audio playback, edit modal & delete */}
-      <div className="flex flex-col gap-2.5">
-        {scenes.map((scene, idx) => {
-          const isPlayingThisScene =
-            isPlaying && currentTime >= scene.start && currentTime <= scene.end;
+        {/* Right Column: Desktop Large Live Monitor & Inspector (lg: 5 cols) */}
+        <div className="hidden lg:flex lg:col-span-5 flex-col gap-3 sticky top-4">
+          <div className="bg-[#12141a] border border-[#1f242d] rounded-2xl p-4 shadow-xl flex flex-col gap-3">
+            <div className="flex items-center justify-between border-b border-[#1f242d] pb-2.5">
+              <div className="flex items-center gap-2">
+                <Eye size={15} className="text-blue-400" />
+                <span className="text-xs font-semibold text-neutral-200 uppercase tracking-wider">
+                  Live Visual Stage
+                </span>
+              </div>
+              {activeDesktopScene && (
+                <span className="text-[11px] font-mono text-neutral-400">
+                  Scene #{activeDesktopScene.index.toString().padStart(2, '0')} ({activeDesktopScene.duration.toFixed(1)}s)
+                </span>
+              )}
+            </div>
 
-          return (
-            <SceneCard
-              key={scene.id || scene.index}
-              scene={scene}
-              projectId={projectId}
-              isLastScene={idx === scenes.length - 1}
-              canDelete={scenes.length > 1}
-              isPlayingThisScene={isPlayingThisScene}
-              onPlayScene={(startTime) => setSeekTime(startTime)}
-              onEditScene={(sc) => setEditingScene(sc)}
-              onDeleteScene={handleDeleteScene}
-              onUpdate={handleUpdateScene}
-              onGenerate={handleGenerate}
-            />
-          );
-        })}
+            {/* 16:9 Big Preview Screen */}
+            <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-[#1f242d] bg-black shadow-inner flex items-center justify-center">
+              {activeDesktopScene?.status === 'ready' ? (
+                <iframe
+                  src={`${API_BASE}/${projectId}/scenes/${activeDesktopScene.index}/preview?t=${Date.now()}`}
+                  title={`Stage Scene ${activeDesktopScene.index}`}
+                  className="w-full h-full border-0"
+                  sandbox="allow-scripts allow-same-origin"
+                />
+              ) : (
+                <div className="text-center p-6 text-neutral-500 flex flex-col items-center gap-2">
+                  <div className="w-10 h-10 rounded-full bg-[#181b22] border border-[#1f242d] flex items-center justify-center text-neutral-400">
+                    <Sparkles size={18} />
+                  </div>
+                  <span className="text-xs">
+                    {activeDesktopScene?.status === 'generating'
+                      ? 'Generating Canvas animation...'
+                      : 'Press "Gen" to create animation with OpenCode'}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Prompt Overview & Quick Refine in Inspector */}
+            {activeDesktopScene && (
+              <div className="flex flex-col gap-2 pt-1 text-xs">
+                <div className="bg-[#090a0f] border border-[#1f242d] rounded-xl p-2.5">
+                  <span className="text-[10px] text-neutral-500 font-semibold block uppercase mb-1">Visual Directive</span>
+                  <p className="text-neutral-300 text-xs italic">
+                    {activeDesktopScene.prompt_visual || 'No visual prompt specified yet.'}
+                  </p>
+                </div>
+
+                {activeDesktopScene.status === 'ready' && (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Desktop Quick Refine..."
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && (e.target as HTMLInputElement).value) {
+                          handleGenerate(activeDesktopScene.index, (e.target as HTMLInputElement).value);
+                          (e.target as HTMLInputElement).value = '';
+                        }
+                      }}
+                      className="flex-1 bg-[#090a0f] border border-[#1f242d] rounded-xl px-3 py-1.5 text-xs text-neutral-200 focus:outline-none focus:border-blue-500"
+                    />
+                    <button
+                      onClick={(e) => {
+                        const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                        if (input && input.value) {
+                          handleGenerate(activeDesktopScene.index, input.value);
+                          input.value = '';
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs active:scale-95 transition-all"
+                    >
+                      Refine
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Precision Trim Modal */}
@@ -360,7 +460,7 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* Fixed Bottom Render Bar */}
+      {/* Bottom Render Bar */}
       <RenderBar
         projectId={projectId}
         isRendering={isRendering}
