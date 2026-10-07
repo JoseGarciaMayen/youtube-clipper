@@ -1,4 +1,4 @@
-import { ProjectData, SceneItem } from '../types';
+import { ProjectData, SceneItem, ProjectSummary } from '../types';
 
 const getBaseUrl = () => {
   if (import.meta.env.VITE_API_BASE_URL) return import.meta.env.VITE_API_BASE_URL;
@@ -11,9 +11,21 @@ const getBaseUrl = () => {
 
 export const API_BASE = `${getBaseUrl()}/api/projects`;
 
-export async function createProject(audioFile: File): Promise<{ project_id: string; audio_duration: number }> {
+export async function listProjects(): Promise<ProjectSummary[]> {
+  const res = await fetch(API_BASE);
+  if (!res.ok) throw new Error('Failed to fetch projects');
+  return res.json();
+}
+
+export async function createProject(
+  audioFile: File,
+  projectName?: string
+): Promise<{ project_id: string; name: string; audio_duration: number }> {
   const formData = new FormData();
   formData.append('audio', audioFile);
+  if (projectName) {
+    formData.append('name', projectName);
+  }
 
   const res = await fetch(API_BASE, {
     method: 'POST',

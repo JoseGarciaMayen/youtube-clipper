@@ -22,10 +22,41 @@ def get_project_dir(project_id: str) -> Path:
         raise HTTPException(status_code=404, detail="Project not found")
     return p
 
+@router.get("")
+async def list_projects():
+    """Returns a list of all existing projects with summary metadata."""
+    results = []
+    if not PROJECTS_DIR.exists():
+        return results
+
+    for p in PROJECTS_DIR.iterdir():
+        if p.is_dir() and (p / "timeline.json").exists():
+            try:
+                with open(p / "timeline.json", "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                scenes = data.get("scenes", [])
+                ready_scenes = sum(1 for s in scenes if s.get("status") == "ready")
+                results.append({
+                    "project_id": data.get("project_id", p.name),
+                    "name": data.get("name", p.name),
+                    "audio_duration": data.get("audio_duration", 0.0),
+                    "scenes_count": len(scenes),
+                    "ready_scenes": ready_scenes,
+                    "updated_at": p.stat().st_mtime
+                })
+            except Exception:
+                pass
+    results.sort(key=lambda x: x.get("updated_at", 0), reverse=True)
+    return results
+
 @router.post("")
-async def create_project(audio: UploadFile = File(...)):
-    """Uploads an audio file and initializes the project structure."""
+async def create_project(
+    audio: UploadFile = File(...),
+    name: Optional[str] = Form(None)
+):
+    """Uploads an audio file and initializes the project structure with a name."""
     project_id = str(uuid.uuid4())[:8]
+    project_name = (name or f"Project-{project_id}").strip()
     p_dir = PROJECTS_DIR / project_id
     p_dir.mkdir(parents=True, exist_ok=True)
     (p_dir / "scenes").mkdir(exist_ok=True)
@@ -36,7 +67,7 @@ async def create_project(audio: UploadFile = File(...)):
     with open(audio_path, "wb") as f:
         shutil.copyfileobj(audio.file, f)
 
-    # Calculate audio duration using ffprobe or mutagen if available
+    # Calculate audio duration using ffprobe
     duration = 0.0
     try:
         proc = await asyncio.create_subprocess_exec(
@@ -47,11 +78,12 @@ async def create_project(audio: UploadFile = File(...)):
         stdout, _ = await proc.communicate()
         duration = float(stdout.decode().strip())
     except Exception:
-        duration = 60.0 # fallback default
+        duration = 60.0
 
-    # Initialize empty timeline
+    # Initialize empty timeline with project name
     timeline_data = {
         "project_id": project_id,
+        "name": project_name,
         "audio_duration": duration,
         "scenes": []
     }
@@ -60,6 +92,7 @@ async def create_project(audio: UploadFile = File(...)):
 
     return {
         "project_id": project_id,
+        "name": project_name,
         "audio_url": f"/api/projects/{project_id}/audio",
         "audio_duration": duration,
         "message": "Project created successfully"

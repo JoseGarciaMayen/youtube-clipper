@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { AudioUpload } from './components/AudioUpload';
+import { ProjectSelector } from './components/ProjectSelector';
 import { AudioTimeline } from './components/AudioTimeline';
 import { SceneCard } from './components/SceneCard';
 import { EditSceneModal } from './components/EditSceneModal';
@@ -7,11 +7,12 @@ import { RenderBar } from './components/RenderBar';
 import { TerminalPanel } from './components/TerminalPanel';
 import { fetchProject, updateTimeline, generateScene, triggerRender, uploadCustomScene, openProjectFolder } from './services/api';
 import { SceneItem, WebSocketEvent } from './types';
-import { Sparkles, Layers, Sliders, Eye, Maximize2, X, FolderOpen } from 'lucide-react';
+import { Sparkles, Layers, Sliders, Eye, Maximize2, X, FolderOpen, ArrowLeft } from 'lucide-react';
 import { API_BASE } from './services/api';
 
 export const App: React.FC = () => {
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [projectName, setProjectName] = useState<string>('');
   const [audioDuration, setAudioDuration] = useState<number>(0);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [scenes, setScenes] = useState<SceneItem[]>([]);
@@ -102,28 +103,33 @@ export const App: React.FC = () => {
     };
   }, [projectId]);
 
-  // Load project if ID is stored in URL or localStorage
+  // Load project if explicit ID is in URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const pid = params.get('project') || localStorage.getItem('math_clipper_active_project');
+    const pid = params.get('project');
     if (pid) {
-      if (!params.get('project')) {
-        window.history.replaceState({}, '', `?project=${pid}`);
-      }
-      fetchProject(pid).then((data) => {
-        setProjectId(data.project_id);
-        localStorage.setItem('math_clipper_active_project', data.project_id);
-        setAudioDuration(data.audio_duration);
-        setScenes(data.scenes || []);
-        setHasRenderedVideo(!!data.has_rendered_video);
-      }).catch(() => {
-        localStorage.removeItem('math_clipper_active_project');
-      });
+      loadProjectById(pid);
     }
   }, []);
 
-  const handleProjectCreated = (newId: string, duration: number) => {
+  const loadProjectById = (pid: string) => {
+    fetchProject(pid).then((data) => {
+      setProjectId(data.project_id);
+      setProjectName(data.name || data.project_id);
+      localStorage.setItem('math_clipper_active_project', data.project_id);
+      setAudioDuration(data.audio_duration);
+      setScenes(data.scenes || []);
+      setHasRenderedVideo(!!data.has_rendered_video);
+      window.history.replaceState({}, '', `?project=${data.project_id}`);
+    }).catch(() => {
+      localStorage.removeItem('math_clipper_active_project');
+      setProjectId(null);
+    });
+  };
+
+  const handleProjectCreated = (newId: string, duration: number, name?: string) => {
     setProjectId(newId);
+    setProjectName(name || newId);
     setAudioDuration(duration);
     localStorage.setItem('math_clipper_active_project', newId);
     window.history.pushState({}, '', `?project=${newId}`);
@@ -317,19 +323,29 @@ export const App: React.FC = () => {
 
   const handleResetAudio = () => {
     if (confirm('Are you sure you want to remove the current audio and start over?')) {
-      localStorage.removeItem('math_clipper_active_project');
-      setProjectId(null);
-      setAudioDuration(0);
-      setCurrentTime(0);
-      setScenes([]);
-      setActiveClipScene(null);
-      setHasRenderedVideo(false);
-      window.history.pushState({}, '', window.location.pathname);
+      handleBackToProjects();
     }
   };
 
+  const handleBackToProjects = () => {
+    localStorage.removeItem('math_clipper_active_project');
+    setProjectId(null);
+    setProjectName('');
+    setAudioDuration(0);
+    setCurrentTime(0);
+    setScenes([]);
+    setActiveClipScene(null);
+    setHasRenderedVideo(false);
+    window.history.pushState({}, '', window.location.pathname);
+  };
+
   if (!projectId) {
-    return <AudioUpload onProjectCreated={handleProjectCreated} />;
+    return (
+      <ProjectSelector
+        onSelectProject={loadProjectById}
+        onProjectCreated={handleProjectCreated}
+      />
+    );
   }
 
   const splitPoints = scenes.slice(0, -1).map((s) => s.end);
@@ -349,8 +365,20 @@ export const App: React.FC = () => {
       {/* Top Header */}
       <header className="flex items-center justify-between pb-3 border-b border-[#1f242d]">
         <div className="flex items-center gap-2.5">
+          <button
+            onClick={handleBackToProjects}
+            className="p-1.5 rounded-lg bg-[#12141a] hover:bg-[#181b22] text-neutral-400 hover:text-white border border-[#1f242d] transition-colors"
+            title="Switch project"
+          >
+            <ArrowLeft size={14} />
+          </button>
           <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-sm shadow-blue-500/50" />
-          <h1 className="font-semibold text-sm tracking-wide text-neutral-100">Math Clipper Studio</h1>
+          <div className="flex items-baseline gap-2">
+            <h1 className="font-semibold text-sm tracking-wide text-neutral-100">
+              {projectName || 'Math Clipper Studio'}
+            </h1>
+            <span className="text-[10px] font-mono text-neutral-500">({projectId})</span>
+          </div>
         </div>
         <div className="flex items-center gap-2.5">
           <button
@@ -362,15 +390,12 @@ export const App: React.FC = () => {
             <span>Open Scenes Folder</span>
           </button>
           <button
-            onClick={handleResetAudio}
-            className="text-[11px] px-2.5 py-1 rounded-md bg-[#12141a] hover:bg-[#181b22] text-neutral-400 hover:text-rose-400 border border-[#1f242d] transition-colors"
-            title="Remove current audio"
+            onClick={handleBackToProjects}
+            className="text-[11px] px-2.5 py-1 rounded-md bg-[#12141a] hover:bg-[#181b22] text-neutral-400 hover:text-white border border-[#1f242d] transition-colors"
+            title="Change project"
           >
-            New Project / Change Audio
+            Switch Project
           </button>
-          <div className="text-[11px] font-mono text-neutral-400 bg-[#12141a] px-2.5 py-1 rounded-md border border-[#1f242d]">
-            Project: {projectId}
-          </div>
         </div>
       </header>
 

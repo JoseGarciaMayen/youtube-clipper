@@ -14,9 +14,19 @@ export interface SceneItem {
 
 export interface ProjectData {
   project_id: string;
+  name?: string;
   audio_duration: number;
   scenes: SceneItem[];
   has_rendered_video?: boolean;
+}
+
+export interface ProjectSummary {
+  project_id: string;
+  name: string;
+  audio_duration: number;
+  scenes_count: number;
+  ready_scenes: number;
+  updated_at: number;
 }
 
 export interface WebSocketEvent {
