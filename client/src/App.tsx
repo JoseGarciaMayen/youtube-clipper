@@ -62,7 +62,17 @@ export const App: React.FC = () => {
           const data: WebSocketEvent = JSON.parse(event.data);
           
           if (data.type === 'opencode_log' && data.line) {
-            setLogs((prev) => [...prev.slice(-100), `[OpenCode] ${data.line}`]);
+            setLogs((prev) => [...prev.slice(-100), data.line]);
+          } else if (data.type === 'opencode_start' && data.message) {
+            setLogs((prev) => [...prev.slice(-100), `🚀 ${data.message}`]);
+          } else if (data.type === 'opencode_step' && data.scene_index !== undefined) {
+            const nextStatus = data.step === 'reviewing' ? 'reviewing' : 'generating';
+            setScenes((prev) =>
+              prev.map((s) => (s.index === data.scene_index ? { ...s, status: nextStatus } : s))
+            );
+            if (data.message) {
+              setLogs((prev) => [...prev.slice(-100), `🔍 ${data.message}`]);
+            }
           } else if (data.type === 'render_log' && data.line) {
             setLogs((prev) => [...prev.slice(-100), `[Render] ${data.line}`]);
           } else if (data.type === 'render_progress') {
@@ -88,6 +98,9 @@ export const App: React.FC = () => {
             fetchProject(projectId).then((p) => setScenes(p.scenes));
           } else if (data.type === 'opencode_complete' && data.scene_index !== undefined) {
             fetchProject(projectId).then((p) => setScenes(p.scenes));
+            if (data.message) {
+              setLogs((prev) => [...prev.slice(-100), data.message]);
+            }
           }
         } catch (e) {
           // ignore

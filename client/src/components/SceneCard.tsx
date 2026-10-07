@@ -86,9 +86,10 @@ export const SceneCard: React.FC<SceneCardProps> = ({
   };
 
   const statusIndicators = {
-    pending: <span className="w-1.5 h-1.5 rounded-full bg-neutral-600" title="Pending" />,
-    generating: <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping" title="Generating" />,
-    ready: <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" title="Ready" />,
+    pending: <span className="w-1.5 h-1.5 rounded-full bg-neutral-600" title="Pendiente" />,
+    generating: <span className="w-2 h-2 rounded-full bg-blue-400 animate-ping" title="Fase 1: Generando con DeepSeek Flash" />,
+    reviewing: <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" title="Fase 2: Revisando con DeepSeek V4 Pro" />,
+    ready: <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" title="Revisado y Aprobado" />,
     error: <span className="w-1.5 h-1.5 rounded-full bg-rose-500" title="Error" />,
   };
 
@@ -119,6 +120,22 @@ export const SceneCard: React.FC<SceneCardProps> = ({
             </span>
             <span className="text-[11px] text-blue-400 font-semibold">({scene.duration.toFixed(1)}s)</span>
           </div>
+
+          {scene.status === 'reviewing' && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-mono animate-pulse">
+              Revisando (V4 Pro)
+            </span>
+          )}
+          {scene.status === 'generating' && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-300 border border-blue-500/30 font-mono animate-pulse">
+              Generando (Flash)
+            </span>
+          )}
+          {scene.status === 'ready' && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono text-[9px]">
+              Aprobado ✓
+            </span>
+          )}
         </div>
 
         {/* Right action icons: Edit modal, Delete, Details */}
@@ -218,12 +235,26 @@ export const SceneCard: React.FC<SceneCardProps> = ({
 
         <button
           onClick={() => onGenerate(scene.index)}
-          disabled={scene.status === 'generating'}
+          disabled={scene.status === 'generating' || scene.status === 'reviewing'}
           className="px-2.5 py-1.5 rounded-xl bg-[#181b22] hover:bg-[#232834] active:bg-blue-600 active:text-white text-blue-400 font-medium text-xs border border-[#2d3442] disabled:opacity-50 transition-all flex items-center gap-1"
-          title="Generate with OpenCode"
+          title={
+            scene.status === 'generating'
+              ? 'Fase 1: Generando con DeepSeek Flash...'
+              : scene.status === 'reviewing'
+              ? 'Fase 2: Revisando con DeepSeek V4 Pro...'
+              : 'Generar con OpenCode (DeepSeek Flash + V4 Pro Review)'
+          }
         >
-          <Sparkles size={12} />
-          <span>{scene.status === 'ready' ? 'Redo' : 'Gen'}</span>
+          <Sparkles size={12} className={scene.status === 'generating' || scene.status === 'reviewing' ? 'animate-spin text-amber-400' : ''} />
+          <span>
+            {scene.status === 'generating'
+              ? 'Generando...'
+              : scene.status === 'reviewing'
+              ? 'Revisando...'
+              : scene.status === 'ready'
+              ? 'Redo'
+              : 'Gen'}
+          </span>
         </button>
 
         {scene.status === 'ready' && (

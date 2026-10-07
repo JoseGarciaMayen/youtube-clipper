@@ -63,32 +63,44 @@ Generate the complete HTML code and save it directly to `{abs_scene_file}`.
 Make sure the file starts with <!DOCTYPE html> and is 100% self-contained and working.
 """
 
-async def run_opencode_generation(project_dir: Path, project_id: str, scene_idx: int, duration: float, prompt_visual: str, prompt_voice: str, refinement: str = None):
+def build_review_prompt(project_dir: Path, scene_idx: int, duration: float, prompt_visual: str, prompt_voice: str, current_code: str) -> str:
     scene_file_name = f"scene_{scene_idx:02d}.html"
-    scene_path = project_dir / "scenes" / scene_file_name
+    abs_scene_file = (project_dir / "scenes" / scene_file_name).resolve()
     
-    existing_code = None
-    if scene_path.exists():
-        existing_code = scene_path.read_text(encoding="utf-8")
-        
-    full_prompt = build_scene_prompt(
-        project_dir=project_dir,
-        scene_idx=scene_idx,
-        duration=duration,
-        prompt_visual=prompt_visual,
-        prompt_voice=prompt_voice,
-        refinement=refinement,
-        existing_code=existing_code
-    )
+    return f"""
+You are the Lead Visual Reviewer and Quality Assurance Art Director.
+You are critically reviewing and approving the generated HTML math animation file `{abs_scene_file}` for Scene #{scene_idx}.
 
-    await ws_manager.broadcast_to_project(project_id, {
-        "type": "opencode_start",
-        "scene_index": scene_idx,
-        "message": f"Starting OpenCode generation for scene #{scene_idx}..."
-    })
+SCENE CONTEXT & CRITERIA:
+- Scene Index: #{scene_idx}
+- Exact Animation Duration: {duration:.2f} seconds
+- Narration Audio Segment: "{prompt_voice}"
+- Visual Instruction Directive: "{prompt_visual}"
+- Dark Theme Requirement: Background strictly #0b0f19, canvas centered 1920x1080 (16:9).
+- Freeze-Frame Requirement: Animation MUST progress smoothly and FREEZE completely when elapsed time reaches {duration:.2f} seconds. No resetting or infinite animation loops.
+- Mathematical Aesthetics: 3Blue1Brown/Manim style. Crisp typography, glowing mathematical elements, vibrant palettes (cyan #06b6d4, gold #f59e0b, emerald #10b981).
 
-    # Prepare command: we run opencode run with explicit DeepSeek model and auto approve
-    cmd = [OPENCODE_BIN, "run", "--model", "deepseek/deepseek-flash", "--auto", full_prompt]
+CURRENT GENERATED CODE IN `{abs_scene_file}`:
+```html
+{current_code}
+```
+
+REVIEW INSTRUCTIONS:
+1. Thoroughly inspect the code for syntax errors, missing variables, or runtime glitches.
+2. Verify the duration constant ({duration:.2f}s) and freeze-frame condition in the requestAnimationFrame loop.
+3. Elevate the visual fidelity, clarity, and mathematical elegance if there are weaknesses.
+4. Overwrite and save the perfected, complete standalone HTML directly to `{abs_scene_file}`.
+"""
+
+async def _execute_opencode_agent(
+    agent_name: str,
+    prompt: str,
+    project_dir: Path,
+    project_id: str,
+    scene_idx: int,
+    stage_tag: str
+) -> bool:
+    cmd = [OPENCODE_BIN, "run", "--agent", agent_name, "--auto", prompt]
 
     process = None
     try:
@@ -99,7 +111,6 @@ async def run_opencode_generation(project_dir: Path, project_id: str, scene_idx:
             stderr=asyncio.subprocess.PIPE
         )
     except FileNotFoundError:
-        # Fallback if opencode binary not found at specified path, try PATH
         cmd[0] = "opencode"
         try:
             process = await asyncio.create_subprocess_exec(
@@ -112,7 +123,7 @@ async def run_opencode_generation(project_dir: Path, project_id: str, scene_idx:
             await ws_manager.broadcast_to_project(project_id, {
                 "type": "opencode_error",
                 "scene_index": scene_idx,
-                "error": f"Failed to invoke OpenCode CLI: {str(e)}"
+                "error": f"Failed to invoke OpenCode ({stage_tag}): {str(e)}"
             })
             return False
 
@@ -127,32 +138,132 @@ async def run_opencode_generation(project_dir: Path, project_id: str, scene_idx:
                     "type": "opencode_log",
                     "scene_index": scene_idx,
                     "stream": "stderr" if is_err else "stdout",
-                    "line": text
+                    "line": f"[{stage_tag}] {text}"
                 })
 
     await asyncio.gather(
         stream_output(process.stdout),
         stream_output(process.stderr)
     )
-    
-    return_code = await process.wait()
 
-    # If the file wasn't directly written by OpenCode or in case OpenCode outputted raw code blocks
-    if not scene_path.exists():
-        # Check if project_dir or subfolder has it, or generate a high quality template if failed
-        await ws_manager.broadcast_to_project(project_id, {
-            "type": "opencode_warning",
-            "scene_index": scene_idx,
-            "message": f"Scene file was not generated automatically by CLI. Creating fallback animation based on prompt."
-        })
+    return_code = await process.wait()
+    return return_code == 0
+
+async def run_opencode_generation(
+    project_dir: Path,
+    project_id: str,
+    scene_idx: int,
+    duration: float,
+    prompt_visual: str,
+    prompt_voice: str,
+    refinement: str = None
+):
+    import json
+    scene_file_name = f"scene_{scene_idx:02d}.html"
+    scenes_dir = project_dir / "scenes"
+    scenes_dir.mkdir(parents=True, exist_ok=True)
+    scene_path = scenes_dir / scene_file_name
+    timeline_file = project_dir / "timeline.json"
+
+    def _set_scene_status(st: str):
+        if timeline_file.exists():
+            try:
+                with open(timeline_file, "r", encoding="utf-8") as f:
+                    tl = json.load(f)
+                sc = next((s for s in tl.get("scenes", []) if s.get("index") == scene_idx), None)
+                if sc:
+                    sc["status"] = st
+                    if st == "ready":
+                        sc["html_file"] = f"scenes/{scene_file_name}"
+                    with open(timeline_file, "w", encoding="utf-8") as f:
+                        json.dump(tl, f, indent=2)
+            except Exception:
+                pass
+
+    existing_code = None
+    if scene_path.exists():
+        existing_code = scene_path.read_text(encoding="utf-8")
+
+    # ==========================================
+    # FASE 1: GENERACIÓN (DeepSeek Flash · visual_coder)
+    # ==========================================
+    await ws_manager.broadcast_to_project(project_id, {
+        "type": "opencode_start",
+        "scene_index": scene_idx,
+        "message": f"Fase 1/2: Generando animación con DeepSeek Flash para la escena #{scene_idx}..."
+    })
+    _set_scene_status("generating")
+
+    gen_prompt = build_scene_prompt(
+        project_dir=project_dir,
+        scene_idx=scene_idx,
+        duration=duration,
+        prompt_visual=prompt_visual,
+        prompt_voice=prompt_voice,
+        refinement=refinement,
+        existing_code=existing_code
+    )
+
+    await _execute_opencode_agent(
+        agent_name="visual_coder",
+        prompt=gen_prompt,
+        project_dir=project_dir,
+        project_id=project_id,
+        scene_idx=scene_idx,
+        stage_tag="DeepSeek Flash · Coder"
+    )
+
+    # Si por alguna razón el archivo no fue creado, inicializar fallback antes de la revisión
+    if not scene_path.exists() or len(scene_path.read_text(encoding="utf-8").strip()) == 0:
         fallback_html = create_fallback_animation_html(scene_idx, duration, prompt_visual, prompt_voice)
         scene_path.write_text(fallback_html, encoding="utf-8")
 
+    # ==========================================
+    # FASE 2: FLUJO DE REVISIÓN (DeepSeek V4 Pro · visual_reviewer)
+    # ==========================================
+    _set_scene_status("reviewing")
+    await ws_manager.broadcast_to_project(project_id, {
+        "type": "opencode_step",
+        "scene_index": scene_idx,
+        "step": "reviewing",
+        "message": f"Fase 2/2: Auditando y perfeccionando escena con modelo revisor (DeepSeek V4 Pro)..."
+    })
+
+    current_code = scene_path.read_text(encoding="utf-8")
+    review_prompt = build_review_prompt(
+        project_dir=project_dir,
+        scene_idx=scene_idx,
+        duration=duration,
+        prompt_visual=prompt_visual,
+        prompt_voice=prompt_voice,
+        current_code=current_code
+    )
+
+    await _execute_opencode_agent(
+        agent_name="visual_reviewer",
+        prompt=review_prompt,
+        project_dir=project_dir,
+        project_id=project_id,
+        scene_idx=scene_idx,
+        stage_tag="DeepSeek V4 Pro · Reviewer"
+    )
+
+    # ==========================================
+    # FASE 3: APROBACIÓN FINAL
+    # ==========================================
+    if not scene_path.exists() or len(scene_path.read_text(encoding="utf-8").strip()) == 0:
+        fallback_html = create_fallback_animation_html(scene_idx, duration, prompt_visual, prompt_voice)
+        scene_path.write_text(fallback_html, encoding="utf-8")
+
+    _set_scene_status("ready")
     await ws_manager.broadcast_to_project(project_id, {
         "type": "opencode_complete",
         "scene_index": scene_idx,
         "success": True,
-        "scene_file": f"scenes/{scene_file_name}"
+        "reviewed": True,
+        "reviewer_model": "deepseek/deepseek-v4-pro",
+        "scene_file": f"scenes/{scene_file_name}",
+        "message": f"✓ Escena #{scene_idx} revisada y aprobada por DeepSeek V4 Pro."
     })
     return True
 

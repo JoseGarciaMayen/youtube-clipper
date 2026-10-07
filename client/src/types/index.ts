@@ -6,10 +6,12 @@ export interface SceneItem {
   duration: number;
   prompt_voice: string;
   prompt_visual: string;
-  status: 'pending' | 'generating' | 'ready' | 'error';
+  status: 'pending' | 'generating' | 'reviewing' | 'ready' | 'error';
   html_file?: string;
   render_file?: string;
   error_message?: string;
+  reviewed?: boolean;
+  reviewer_model?: string;
 }
 
 export interface ProjectData {
@@ -38,4 +40,7 @@ export interface WebSocketEvent {
   stream?: string;
   line?: string;
   video_url?: string;
+  step?: string;
+  reviewed?: boolean;
+  reviewer_model?: string;
 }

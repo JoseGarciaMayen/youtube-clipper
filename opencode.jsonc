@@ -14,6 +14,17 @@
         "bash": true
       }
     },
+    "visual_reviewer": {
+      "model": "deepseek/deepseek-v4-pro",
+      "temperature": 0.1,
+      "prompt": "You are a Senior Visual Mathematics Art Director and Code Reviewer. Your role is to critically review, test, and approve standalone HTML5 animations created by the visual coder. You verify: (1) Exact duration timing and freeze-frame behavior, (2) 1920x1080 canvas scaling, #0b0f19 dark theme, (3) Mathematical correctness, visual beauty, and pedagogical clarity, (4) Absence of JavaScript syntax errors or infinite loops. You have full edit/write permissions to fix any deficiencies directly in the code before giving final approval.",
+      "tools": {
+        "read": true,
+        "write": true,
+        "edit": true,
+        "bash": true
+      }
+    },
     "refactor_agent": {
       "model": "deepseek/deepseek-flash",
       "temperature": 0.1,
