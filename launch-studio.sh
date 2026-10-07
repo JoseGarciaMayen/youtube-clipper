@@ -11,4 +11,4 @@ fi
 
 echo "[Studio] Launching Math Clipper Desktop Studio..."
 cd "$DIR/client"
-npx electron .
+npx electron . --no-sandbox

@@ -1,6 +1,10 @@
 const { app, BrowserWindow, shell, ipcMain } = require('electron');
 const path = require('path');
 
+// Disable SUID sandbox requirement on Linux desktop environments
+app.commandLine.appendSwitch('no-sandbox');
+app.commandLine.appendSwitch('disable-gpu-sandbox');
+
 let mainWindow;
 
 function createWindow() {

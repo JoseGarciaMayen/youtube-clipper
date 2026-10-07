@@ -7,8 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "desktop": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "desktop:dist": "vite build && electron ."
+    "desktop": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron . --no-sandbox\"",
+    "desktop:dist": "vite build && electron . --no-sandbox"
   },
   "dependencies": {
     "lucide-react": "^0.460.0",
