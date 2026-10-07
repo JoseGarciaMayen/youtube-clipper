@@ -45,21 +45,30 @@ export const AudioTimeline: React.FC<AudioTimelineProps> = ({
   }, [seekTime, onSeekHandled]);
 
   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
+    let animId: number;
 
-    const handleTime = () => {
-      onTimeUpdate(audio.currentTime);
+    const loop = () => {
+      const audio = audioRef.current;
+      if (audio && !audio.paused) {
+        onTimeUpdate(audio.currentTime);
 
-      // If playing a specific clipped scene, stop precisely at scene.end
-      if (clipRange && audio.currentTime >= clipRange.end) {
-        audio.pause();
-        audio.currentTime = clipRange.start;
-        setIsPlaying(false);
-        onPlayStateChange?.(false);
-        onClipEnded?.();
+        // If playing a specific clipped scene, stop precisely at scene.end
+        if (clipRange && audio.currentTime >= clipRange.end) {
+          audio.pause();
+          audio.currentTime = clipRange.start;
+          onTimeUpdate(clipRange.start);
+          setIsPlaying(false);
+          onPlayStateChange?.(false);
+          onClipEnded?.();
+        }
       }
+      animId = requestAnimationFrame(loop);
     };
+
+    animId = requestAnimationFrame(loop);
+
+    const audio = audioRef.current;
+    if (!audio) return () => cancelAnimationFrame(animId);
 
     const handlePlay = () => {
       setIsPlaying(true);
@@ -75,13 +84,12 @@ export const AudioTimeline: React.FC<AudioTimelineProps> = ({
       onClipEnded?.();
     };
 
-    audio.addEventListener('timeupdate', handleTime);
     audio.addEventListener('play', handlePlay);
     audio.addEventListener('pause', handlePause);
     audio.addEventListener('ended', handleEnded);
 
     return () => {
-      audio.removeEventListener('timeupdate', handleTime);
+      cancelAnimationFrame(animId);
       audio.removeEventListener('play', handlePlay);
       audio.removeEventListener('pause', handlePause);
       audio.removeEventListener('ended', handleEnded);

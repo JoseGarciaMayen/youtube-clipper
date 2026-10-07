@@ -79,32 +79,42 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
   }, [scene]);
 
   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
+    let animId: number;
 
-    const handleTime = () => {
-      setCurrentPlayTime(audio.currentTime);
+    const updateLoop = () => {
+      const audio = audioRef.current;
+      if (audio && !audio.paused) {
+        const ct = audio.currentTime;
+        setCurrentPlayTime(ct);
 
-      // Auto scroll viewport window if playhead gets close to edge
-      if (audio.currentTime > windowCenter + WINDOW_SPAN / 2 - 1.5) {
-        setWindowCenter(audio.currentTime);
+        // Auto scroll viewport window smoothly if playhead gets close to edge
+        if (ct > windowCenter + WINDOW_SPAN / 2 - 1.5) {
+          setWindowCenter(ct);
+        }
+
+        // Loop precisely within clip range
+        if (ct >= end) {
+          audio.currentTime = start;
+          setCurrentPlayTime(start);
+          audio.play().catch(() => {});
+        }
       }
-
-      // Loop precisely within clip range
-      if (audio.currentTime >= end) {
-        audio.currentTime = start;
-        audio.play().catch(() => {});
-      }
+      animId = requestAnimationFrame(updateLoop);
     };
 
-    const handleEnded = () => setIsPlaying(false);
+    animId = requestAnimationFrame(updateLoop);
 
-    audio.addEventListener('timeupdate', handleTime);
-    audio.addEventListener('ended', handleEnded);
+    const audio = audioRef.current;
+    const handleEnded = () => setIsPlaying(false);
+    if (audio) {
+      audio.addEventListener('ended', handleEnded);
+    }
 
     return () => {
-      audio.removeEventListener('timeupdate', handleTime);
-      audio.removeEventListener('ended', handleEnded);
+      cancelAnimationFrame(animId);
+      if (audio) {
+        audio.removeEventListener('ended', handleEnded);
+      }
     };
   }, [start, end, windowCenter]);
 
@@ -118,11 +128,19 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
     const canvas = waveformCanvasRef.current;
     if (!canvas || !audioBuffer) return;
 
+    // Use actual client bounding rect for crisp 1:1 pixel rendering
+    const rect = canvas.getBoundingClientRect();
+    const width = Math.max(rect.width || 600, 300);
+    const height = Math.max(rect.height || 96, 60);
+
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const width = canvas.width;
-    const height = canvas.height;
     ctx.clearRect(0, 0, width, height);
 
     const channelData = audioBuffer.getChannelData(0);
@@ -137,12 +155,19 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
     const samplesPerPixel = Math.max(1, Math.floor(totalSamplesInView / width));
     const centerY = height / 2;
 
-    // Draw baseline
+    // First pass: find maximum peak in this visible window for dynamic normalization / amplification
+    let maxVisiblePeak = 0.05;
+    const stepCheck = Math.max(1, Math.floor(totalSamplesInView / 1000));
+    for (let s = Math.max(0, startSample); s < Math.min(channelData.length, endSample); s += stepCheck) {
+      const a = Math.abs(channelData[s]);
+      if (a > maxVisiblePeak) maxVisiblePeak = a;
+    }
+    // Boost factor: target at least 85% height for the loudest syllable in view
+    const boostMultiplier = Math.min(5.0, Math.max(1.8, 0.85 / maxVisiblePeak));
+
+    // Draw center baseline
     ctx.fillStyle = '#1e242d';
     ctx.fillRect(0, centerY - 0.5, width, 1);
-
-    // Draw sound wave bars
-    ctx.fillStyle = '#3b82f6'; // Bright crisp blue wave
 
     for (let x = 0; x < width; x++) {
       const idx = startSample + x * samplesPerPixel;
@@ -151,22 +176,23 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
       let min = 1.0;
       let max = -1.0;
 
-      for (let j = 0; j < samplesPerPixel; j += Math.max(1, Math.floor(samplesPerPixel / 10))) {
+      for (let j = 0; j < samplesPerPixel; j += Math.max(1, Math.floor(samplesPerPixel / 12))) {
         const val = channelData[idx + j];
         if (val < min) min = val;
         if (val > max) max = val;
       }
 
-      const amp = Math.max(Math.abs(min), Math.abs(max));
-      const barHeight = Math.max(2, amp * height * 0.85);
+      const rawAmp = Math.max(Math.abs(min), Math.abs(max));
+      const amplifiedAmp = Math.min(1.0, rawAmp * boostMultiplier);
+      const barHeight = Math.max(2, amplifiedAmp * (height - 8));
       const y = centerY - barHeight / 2;
 
       // Color variation: highlight inside [start, end]
       const curTime = winStart + (x / width) * currentSpan;
       if (curTime >= start && curTime <= end) {
-        ctx.fillStyle = '#60a5fa'; // Highlighted active clip
+        ctx.fillStyle = '#60a5fa'; // Bright active clip wave
       } else {
-        ctx.fillStyle = '#263040'; // Outside clip
+        ctx.fillStyle = '#1f2937'; // Subdued outside clip
       }
 
       ctx.fillRect(x, y, 1.5, barHeight);
@@ -191,6 +217,7 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
     } else {
       if (audioRef.current.currentTime < start || audioRef.current.currentTime >= end) {
         audioRef.current.currentTime = start;
+        setCurrentPlayTime(start);
       }
       audioRef.current.play().catch(() => {});
       setIsPlaying(true);
@@ -208,17 +235,18 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
     const rect = trackRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
     const pct = (x / rect.width) * 100;
-    const targetTime = parseFloat(pctToTime(pct).toFixed(2));
+    // Continuous continuous precision (not quantized/choppy)
+    const targetTime = pctToTime(pct);
 
     if (draggingHandle === 'start') {
-      const newStart = Math.max(minStart, Math.min(targetTime, end - 0.2));
+      const newStart = Math.max(minStart, Math.min(targetTime, end - 0.1));
       setStart(newStart);
       if (audioRef.current && !isPlaying) {
         audioRef.current.currentTime = newStart;
         setCurrentPlayTime(newStart);
       }
     } else if (draggingHandle === 'end') {
-      const newEnd = Math.min(maxEnd, Math.max(targetTime, start + 0.2));
+      const newEnd = Math.min(maxEnd, Math.max(targetTime, start + 0.1));
       setEnd(newEnd);
     } else if (draggingHandle === 'playhead') {
       const clamped = Math.max(start, Math.min(targetTime, end));
