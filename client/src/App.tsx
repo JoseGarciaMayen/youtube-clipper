@@ -3,6 +3,7 @@ import { ProjectSelector } from './components/ProjectSelector';
 import { AudioTimeline } from './components/AudioTimeline';
 import { SceneCard } from './components/SceneCard';
 import { EditSceneModal } from './components/EditSceneModal';
+import { FullscreenPlayer } from './components/FullscreenPlayer';
 import { RenderBar } from './components/RenderBar';
 import { TerminalPanel } from './components/TerminalPanel';
 import { fetchProject, updateTimeline, generateScene, triggerRender, uploadCustomScene, openProjectFolder, renameProject, deleteProject } from './services/api';
@@ -440,6 +441,14 @@ export const App: React.FC = () => {
         </div>
         <div className="flex items-center gap-2.5">
           <button
+            onClick={() => setIsFullscreenStage(true)}
+            className="text-[11px] px-2.5 py-1 rounded-md bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 transition-colors flex items-center gap-1.5 font-medium shadow-sm"
+            title="Ver todas las escenas en pantalla completa con audio sincronizado"
+          >
+            <Maximize2 size={12} />
+            <span>Pantalla Completa</span>
+          </button>
+          <button
             onClick={handleOpenFolder}
             className="text-[11px] px-2.5 py-1 rounded-md bg-[#12141a] hover:bg-[#181b22] text-neutral-300 hover:text-blue-400 border border-[#1f242d] transition-colors flex items-center gap-1.5"
             title="Open scenes folder on disk in file explorer"
@@ -540,15 +549,13 @@ export const App: React.FC = () => {
                     Scene #{activeDesktopScene.index.toString().padStart(2, '0')} ({activeDesktopScene.duration.toFixed(1)}s)
                   </span>
                 )}
-                {activeDesktopScene?.status === 'ready' && (
-                  <button
-                    onClick={() => setIsFullscreenStage(true)}
-                    className="p-1 rounded-md text-neutral-400 hover:text-blue-400 hover:bg-[#181b22] transition-colors"
-                    title="View Fullscreen"
-                  >
-                    <Maximize2 size={13} />
-                  </button>
-                )}
+                <button
+                  onClick={() => setIsFullscreenStage(true)}
+                  className="p-1 rounded-md text-neutral-400 hover:text-blue-400 hover:bg-[#181b22] transition-colors"
+                  title="Ver todas las escenas en pantalla completa con audio sincronizado"
+                >
+                  <Maximize2 size={13} />
+                </button>
               </div>
             </div>
 
@@ -627,36 +634,20 @@ export const App: React.FC = () => {
         </div>
       </div>
 
-      {/* Fullscreen Stage Modal */}
-      {isFullscreenStage && activeDesktopScene && (
-        <div className="fixed inset-0 z-50 bg-black/95 flex flex-col p-4 animate-in fade-in duration-200">
-          <div className="flex items-center justify-between pb-3 px-2">
-            <div className="flex items-center gap-3">
-              <span className="font-mono font-bold text-sm text-blue-400">
-                Scene #{activeDesktopScene.index.toString().padStart(2, '0')}
-              </span>
-              <span className="text-xs text-neutral-400 font-mono">
-                {activeDesktopScene.start.toFixed(1)}s - {activeDesktopScene.end.toFixed(1)}s ({activeDesktopScene.duration.toFixed(1)}s)
-              </span>
-            </div>
-            <button
-              onClick={() => setIsFullscreenStage(false)}
-              className="p-1.5 rounded-lg bg-[#181b22] text-neutral-400 hover:text-white border border-[#2d3442] transition-colors"
-              title="Close Fullscreen"
-            >
-              <X size={18} />
-            </button>
-          </div>
-          <div className="flex-1 w-full flex items-center justify-center rounded-2xl overflow-hidden border border-[#1f242d] bg-black">
-            <iframe
-              src={`${API_BASE}/${projectId}/scenes/${activeDesktopScene.index}/preview?t=${Date.now()}`}
-              title={`Fullscreen Scene ${activeDesktopScene.index}`}
-              className="w-full h-full border-0"
-              sandbox="allow-scripts allow-same-origin"
-            />
-          </div>
-        </div>
-      )}
+      {/* Fullscreen Video Player (All scenes + Synced Audio) */}
+      <FullscreenPlayer
+        projectId={projectId}
+        projectName={projectName}
+        scenes={scenes}
+        duration={audioDuration}
+        initialTime={currentTime}
+        isOpen={isFullscreenStage}
+        onClose={(finalTime) => {
+          setIsFullscreenStage(false);
+          setCurrentTime(finalTime);
+          setSeekTime(finalTime);
+        }}
+      />
 
       {/* Precision Trim Modal */}
       {editingScene && (
