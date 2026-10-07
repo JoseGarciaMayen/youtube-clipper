@@ -10,5 +10,5 @@ OPENCODE_BIN = os.environ.get("OPENCODE_BIN", str(Path.home() / ".opencode" / "b
 NODE_BIN = os.environ.get("NODE_BIN", "node")
 FFMPEG_BIN = os.environ.get("FFMPEG_BIN", "ffmpeg")
 
-PORT = int(os.environ.get("PORT", "8000"))
+PORT = int(os.environ.get("PORT", "8080"))
 HOST = os.environ.get("HOST", "0.0.0.0")

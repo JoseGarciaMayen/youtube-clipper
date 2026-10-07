@@ -23,11 +23,11 @@ app.add_middleware(
 
 app.include_router(projects_router)
 
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "service": "youtube-clipper-backend"}
+
 # Mount client dist if built
 dist_dir = BASE_DIR / "client" / "dist"
 if dist_dir.exists():
     app.mount("/", StaticFiles(directory=str(dist_dir), html=True), name="static")
-
-@app.get("/health")
-def health_check():
-    return {"status": "ok", "service": "youtube-clipper-backend"}
