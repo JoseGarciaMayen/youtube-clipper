@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { X, Play, Pause, RotateCcw, Check, Volume2 } from 'lucide-react';
+import { X, Play, Pause, Check, Volume2, MoveHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
 import { SceneItem } from '../types';
 import { API_BASE } from '../services/api';
 
@@ -23,15 +23,23 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
   onSave,
 }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const trackRef = useRef<HTMLDivElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentPlayTime, setCurrentPlayTime] = useState(scene.start);
   const [start, setStart] = useState(scene.start);
   const [end, setEnd] = useState(scene.end);
 
+  // Zoomed window state (defaults to ~10s around scene)
+  const WINDOW_SPAN = 12; // 12 seconds visible window
+  const [windowCenter, setWindowCenter] = useState((scene.start + scene.end) / 2);
+
+  const [draggingHandle, setDraggingHandle] = useState<'start' | 'end' | 'playhead' | null>(null);
+
   useEffect(() => {
     setStart(scene.start);
     setEnd(scene.end);
     setCurrentPlayTime(scene.start);
+    setWindowCenter((scene.start + scene.end) / 2);
     setIsPlaying(false);
   }, [scene]);
 
@@ -41,7 +49,13 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
 
     const handleTime = () => {
       setCurrentPlayTime(audio.currentTime);
-      // Auto loop or stop at scene end
+
+      // Auto scroll viewport window if playhead gets close to edge
+      if (audio.currentTime > windowCenter + WINDOW_SPAN / 2 - 1.5) {
+        setWindowCenter(audio.currentTime);
+      }
+
+      // Loop precisely within clip range
       if (audio.currentTime >= end) {
         audio.currentTime = start;
         audio.play().catch(() => {});
@@ -57,9 +71,22 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
       audio.removeEventListener('timeupdate', handleTime);
       audio.removeEventListener('ended', handleEnded);
     };
-  }, [start, end]);
+  }, [start, end, windowCenter]);
 
   if (!isOpen) return null;
+
+  // Viewport calculation
+  const winStart = Math.max(minStart, windowCenter - WINDOW_SPAN / 2);
+  const winEnd = Math.min(maxEnd, winStart + WINDOW_SPAN);
+  const currentSpan = Math.max(winEnd - winStart, 1);
+
+  const timeToPct = (t: number) => {
+    return Math.max(0, Math.min(100, ((t - winStart) / currentSpan) * 100));
+  };
+
+  const pctToTime = (pct: number) => {
+    return winStart + (pct / 100) * currentSpan;
+  };
 
   const togglePlay = () => {
     if (!audioRef.current) return;
@@ -75,17 +102,49 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
     }
   };
 
-  const handleStartChange = (val: number) => {
-    const newStart = Math.max(minStart, Math.min(val, end - 0.2));
-    setStart(parseFloat(newStart.toFixed(2)));
-    if (audioRef.current) {
-      audioRef.current.currentTime = newStart;
+  const handlePointerDown = (handle: 'start' | 'end' | 'playhead') => (e: React.PointerEvent) => {
+    e.preventDefault();
+    setDraggingHandle(handle);
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!draggingHandle || !trackRef.current) return;
+    const rect = trackRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+    const pct = (x / rect.width) * 100;
+    const targetTime = parseFloat(pctToTime(pct).toFixed(2));
+
+    if (draggingHandle === 'start') {
+      const newStart = Math.max(minStart, Math.min(targetTime, end - 0.2));
+      setStart(newStart);
+      if (audioRef.current && !isPlaying) {
+        audioRef.current.currentTime = newStart;
+        setCurrentPlayTime(newStart);
+      }
+    } else if (draggingHandle === 'end') {
+      const newEnd = Math.min(maxEnd, Math.max(targetTime, start + 0.2));
+      setEnd(newEnd);
+    } else if (draggingHandle === 'playhead') {
+      const clamped = Math.max(start, Math.min(targetTime, end));
+      if (audioRef.current) {
+        audioRef.current.currentTime = clamped;
+        setCurrentPlayTime(clamped);
+      }
     }
   };
 
-  const handleEndChange = (val: number) => {
-    const newEnd = Math.min(maxEnd, Math.max(val, start + 0.2));
-    setEnd(parseFloat(newEnd.toFixed(2)));
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (draggingHandle) {
+      setDraggingHandle(null);
+      try {
+        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch {}
+    }
+  };
+
+  const shiftWindow = (seconds: number) => {
+    setWindowCenter((prev) => Math.max(minStart + WINDOW_SPAN / 2, Math.min(maxEnd - WINDOW_SPAN / 2, prev + seconds)));
   };
 
   const handleSave = () => {
@@ -99,6 +158,8 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
     onClose();
   };
 
+  const duration = end - start;
+
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
     const s = Math.floor(secs % 60);
@@ -106,22 +167,20 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
   };
 
-  const duration = end - start;
-
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 sm:p-4">
+    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 sm:p-4">
       <audio
         ref={audioRef}
         src={`${API_BASE}/${projectId}/audio`}
         preload="auto"
       />
 
-      <div className="bg-[#12141a] border border-[#1f242d] w-full max-w-md rounded-2xl p-5 shadow-2xl flex flex-col gap-4 animate-in fade-in duration-150">
-        {/* Modal Header */}
+      <div className="bg-[#12141a] border border-[#1f242d] w-full max-w-xl rounded-2xl p-5 shadow-2xl flex flex-col gap-4 animate-in fade-in duration-150">
+        {/* Header */}
         <div className="flex items-center justify-between border-b border-[#1f242d] pb-3">
           <div className="flex items-center gap-2">
             <span className="text-blue-500 font-mono font-bold text-base">Scene #{scene.index.toString().padStart(2, '0')}</span>
-            <span className="text-xs text-neutral-400">Precision Trim</span>
+            <span className="text-xs text-neutral-400">Kdenlive-Style Precision Trim (~10s Window)</span>
           </div>
           <button
             onClick={() => {
@@ -134,11 +193,12 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
           </button>
         </div>
 
-        {/* Audio Player & Loop Control */}
+        {/* Audio Player & Loop Status */}
         <div className="bg-[#090a0f] border border-[#1f242d] rounded-xl p-3 flex items-center justify-between">
           <button
             onClick={togglePlay}
             className="w-10 h-10 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-md active:scale-95 transition-all"
+            title="Loop audio segment"
           >
             {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
           </button>
@@ -147,88 +207,159 @@ export const EditSceneModal: React.FC<EditSceneModalProps> = ({
             <span className="text-sm font-semibold text-neutral-100">
               {formatTime(currentPlayTime)}
             </span>
-            <span className="text-[11px] text-blue-400">
-              Loop duration: {duration.toFixed(2)}s
+            <span className="text-[11px] text-blue-400 font-medium">
+              Duration: {duration.toFixed(2)}s ({start.toFixed(2)}s ➔ {end.toFixed(2)}s)
             </span>
           </div>
         </div>
 
-        {/* Start Slider & Nudges */}
-        <div className="flex flex-col gap-1.5">
-          <div className="flex justify-between items-center text-xs">
-            <span className="text-neutral-400 font-medium">Start Timestamp</span>
-            <span className="font-mono text-neutral-200">{start.toFixed(2)}s</span>
-          </div>
-          <input
-            type="range"
-            min={minStart}
-            max={end - 0.2}
-            step="0.05"
-            value={start}
-            onChange={(e) => handleStartChange(parseFloat(e.target.value))}
-            className="w-full accent-blue-500 cursor-pointer h-1.5 bg-[#1f242d] rounded-lg"
-          />
-          <div className="flex justify-end gap-1.5">
+        {/* Zoomed Timeline Track Window (~10-12 seconds span) */}
+        <div className="flex flex-col gap-1.5 select-none">
+          <div className="flex items-center justify-between text-[11px] text-neutral-400 font-mono">
             <button
-              onClick={() => handleStartChange(start - 0.1)}
-              className="px-2 py-0.5 rounded bg-[#1f242d] hover:bg-[#2d3748] text-[11px] font-mono text-neutral-300"
+              onClick={() => shiftWindow(-4)}
+              className="px-2 py-0.5 rounded bg-[#181b22] hover:bg-[#232834] flex items-center gap-1 text-neutral-300"
+              title="Pan left"
             >
-              -0.1s
+              <ChevronLeft size={12} /> -4s
             </button>
+            <span className="text-neutral-500">
+              Window: {winStart.toFixed(1)}s — {winEnd.toFixed(1)}s
+            </span>
             <button
-              onClick={() => handleStartChange(start + 0.1)}
-              className="px-2 py-0.5 rounded bg-[#1f242d] hover:bg-[#2d3748] text-[11px] font-mono text-neutral-300"
+              onClick={() => shiftWindow(4)}
+              className="px-2 py-0.5 rounded bg-[#181b22] hover:bg-[#232834] flex items-center gap-1 text-neutral-300"
+              title="Pan right"
             >
-              +0.1s
+              +4s <ChevronRight size={12} />
             </button>
           </div>
+
+          {/* Interactive Multi-Handle Track */}
+          <div
+            ref={trackRef}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            className="relative h-20 bg-[#090a0f] rounded-xl border border-[#1f242d] overflow-hidden cursor-crosshair touch-none"
+          >
+            {/* Timeline Tick Marks (every 1 second) */}
+            <div className="absolute inset-0 pointer-events-none flex justify-between px-2 opacity-20">
+              {Array.from({ length: 11 }).map((_, i) => (
+                <div key={i} className="h-full w-[1px] bg-neutral-400 flex flex-col justify-between py-1">
+                  <span className="text-[8px] font-mono text-neutral-400 -ml-2">
+                    {(winStart + (i * currentSpan) / 10).toFixed(0)}s
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Active Scene Highlight Block */}
+            <div
+              className="absolute top-0 bottom-0 bg-blue-600/20 border-t-2 border-b-2 border-blue-500/80 pointer-events-none"
+              style={{
+                left: `${timeToPct(start)}%`,
+                width: `${Math.max(0, timeToPct(end) - timeToPct(start))}%`,
+              }}
+            />
+
+            {/* Left Boundary Handle (Start) */}
+            <div
+              onPointerDown={handlePointerDown('start')}
+              className="absolute top-0 bottom-0 w-4 -ml-2 z-20 cursor-ew-resize flex items-center justify-center group"
+              style={{ left: `${timeToPct(start)}%` }}
+            >
+              <div className="w-1.5 h-full bg-blue-500 rounded-sm group-hover:bg-blue-400 shadow-md flex items-center justify-center">
+                <div className="w-0.5 h-4 bg-white/60 rounded" />
+              </div>
+              <div className="absolute -top-5 font-mono text-[9px] bg-blue-600 text-white px-1 rounded pointer-events-none whitespace-nowrap">
+                {start.toFixed(2)}s
+              </div>
+            </div>
+
+            {/* Right Boundary Handle (End) */}
+            <div
+              onPointerDown={handlePointerDown('end')}
+              className="absolute top-0 bottom-0 w-4 -ml-2 z-20 cursor-ew-resize flex items-center justify-center group"
+              style={{ left: `${timeToPct(end)}%` }}
+            >
+              <div className="w-1.5 h-full bg-blue-500 rounded-sm group-hover:bg-blue-400 shadow-md flex items-center justify-center">
+                <div className="w-0.5 h-4 bg-white/60 rounded" />
+              </div>
+              <div className="absolute -top-5 font-mono text-[9px] bg-blue-600 text-white px-1 rounded pointer-events-none whitespace-nowrap">
+                {end.toFixed(2)}s
+              </div>
+            </div>
+
+            {/* Red Playhead Line */}
+            <div
+              onPointerDown={handlePointerDown('playhead')}
+              className="absolute top-0 bottom-0 w-3 -ml-1.5 z-30 cursor-pointer flex items-center justify-center pointer-events-auto"
+              style={{ left: `${timeToPct(currentPlayTime)}%` }}
+            >
+              <div className="w-[2px] h-full bg-rose-500 shadow-sm" />
+              <div className="absolute top-0 w-2.5 h-2.5 -mt-1 bg-rose-500 rotate-45" />
+            </div>
+          </div>
+          <span className="text-[10px] text-neutral-500 text-center">
+            Drag blue side handles to trim start/end. Drag red playhead to scrub.
+          </span>
         </div>
 
-        {/* End Slider & Nudges */}
-        <div className="flex flex-col gap-1.5">
-          <div className="flex justify-between items-center text-xs">
-            <span className="text-neutral-400 font-medium">End Timestamp</span>
-            <span className="font-mono text-neutral-200">{end.toFixed(2)}s</span>
+        {/* Nudge Buttons */}
+        <div className="grid grid-cols-2 gap-3 pt-1">
+          {/* Start Nudge */}
+          <div className="bg-[#090a0f] border border-[#1f242d] rounded-xl p-2.5 flex flex-col gap-1.5">
+            <span className="text-[11px] text-neutral-400 font-medium">Start: <span className="font-mono text-neutral-200">{start.toFixed(2)}s</span></span>
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => setStart((prev) => Math.max(minStart, parseFloat((prev - 0.1).toFixed(2))))}
+                className="flex-1 py-1 rounded bg-[#181b22] hover:bg-[#232834] text-xs font-mono text-neutral-300"
+              >
+                -0.1s
+              </button>
+              <button
+                onClick={() => setStart((prev) => Math.min(end - 0.2, parseFloat((prev + 0.1).toFixed(2))))}
+                className="flex-1 py-1 rounded bg-[#181b22] hover:bg-[#232834] text-xs font-mono text-neutral-300"
+              >
+                +0.1s
+              </button>
+            </div>
           </div>
-          <input
-            type="range"
-            min={start + 0.2}
-            max={maxEnd}
-            step="0.05"
-            value={end}
-            onChange={(e) => handleEndChange(parseFloat(e.target.value))}
-            className="w-full accent-blue-500 cursor-pointer h-1.5 bg-[#1f242d] rounded-lg"
-          />
-          <div className="flex justify-end gap-1.5">
-            <button
-              onClick={() => handleEndChange(end - 0.1)}
-              className="px-2 py-0.5 rounded bg-[#1f242d] hover:bg-[#2d3748] text-[11px] font-mono text-neutral-300"
-            >
-              -0.1s
-            </button>
-            <button
-              onClick={() => handleEndChange(end + 0.1)}
-              className="px-2 py-0.5 rounded bg-[#1f242d] hover:bg-[#2d3748] text-[11px] font-mono text-neutral-300"
-            >
-              +0.1s
-            </button>
+
+          {/* End Nudge */}
+          <div className="bg-[#090a0f] border border-[#1f242d] rounded-xl p-2.5 flex flex-col gap-1.5">
+            <span className="text-[11px] text-neutral-400 font-medium">End: <span className="font-mono text-neutral-200">{end.toFixed(2)}s</span></span>
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => setEnd((prev) => Math.max(start + 0.2, parseFloat((prev - 0.1).toFixed(2))))}
+                className="flex-1 py-1 rounded bg-[#181b22] hover:bg-[#232834] text-xs font-mono text-neutral-300"
+              >
+                -0.1s
+              </button>
+              <button
+                onClick={() => setEnd((prev) => Math.min(maxEnd, parseFloat((prev + 0.1).toFixed(2))))}
+                className="flex-1 py-1 rounded bg-[#181b22] hover:bg-[#232834] text-xs font-mono text-neutral-300"
+              >
+                +0.1s
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2 pt-2">
+        <div className="flex items-center gap-2 pt-2 border-t border-[#1f242d]">
           <button
             onClick={() => {
               if (audioRef.current) audioRef.current.pause();
               onClose();
             }}
-            className="flex-1 py-2.5 rounded-xl bg-[#1f242d] hover:bg-[#2d3748] text-neutral-300 text-xs font-semibold transition-all"
+            className="flex-1 py-2.5 rounded-xl bg-[#181b22] hover:bg-[#232834] text-neutral-300 text-xs font-semibold transition-all"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+            className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-md"
           >
             <Check size={14} />
             <span>Apply Trim</span>

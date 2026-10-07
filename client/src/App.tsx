@@ -176,28 +176,19 @@ export const App: React.FC = () => {
 
     setScenes((currentScenes) => {
       const targetIdx = currentScenes.findIndex((s) => s.index === sceneIndex);
-      if (targetIdx <= 0) return currentScenes;
+      if (targetIdx === -1) return currentScenes;
 
-      const prev = currentScenes[targetIdx - 1];
-      const current = currentScenes[targetIdx];
-
-      const mergedPrev: SceneItem = {
-        ...prev,
-        end: current.end,
-        duration: parseFloat((current.end - prev.start).toFixed(2)),
-      };
-
-      const updated = [
-        ...currentScenes.slice(0, targetIdx - 1),
-        mergedPrev,
-        ...currentScenes.slice(targetIdx + 1).map((s) => ({
+      // Keep previous scenes intact without expanding to deleted range
+      const updated = currentScenes
+        .filter((s) => s.index !== sceneIndex)
+        .map((s, idx) => ({
           ...s,
-          index: s.index - 1,
-        })),
-      ];
+          index: idx + 1,
+        }));
 
       updateTimeline(projectId, updated);
-      setSelectedSceneIndex(mergedPrev.index);
+      const newActiveIdx = Math.max(1, targetIdx);
+      setSelectedSceneIndex(newActiveIdx);
       return updated;
     });
   };
