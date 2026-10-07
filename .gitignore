@@ -1,0 +1,29 @@
+# Environments & Virtual Envs
+.venv/
+venv/
+ENV/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Node.js dependencies & builds
+node_modules/
+dist/
+build/
+.npm/
+package-lock.json
+
+# Project data & renders
+projects/
+*.mp4
+*.mp3
+*.wav
+
+# OS & IDE metadata
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log

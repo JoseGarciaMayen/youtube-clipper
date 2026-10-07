@@ -1,0 +1,13 @@
+{
+  "name": "math-clipper-renderer",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Headless Puppeteer & FFmpeg 60fps rendering pipeline",
+  "main": "render_pipeline.js",
+  "scripts": {
+    "start": "node render_pipeline.js"
+  },
+  "dependencies": {
+    "puppeteer": "^23.4.0"
+  }
+}
