@@ -270,6 +270,17 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleResetAudio = () => {
+    if (confirm('Are you sure you want to remove the current audio and start over?')) {
+      setProjectId(null);
+      setAudioDuration(0);
+      setCurrentTime(0);
+      setScenes([]);
+      setHasRenderedVideo(false);
+      window.history.pushState({}, '', window.location.pathname);
+    }
+  };
+
   if (!projectId) {
     return <AudioUpload onProjectCreated={handleProjectCreated} />;
   }
@@ -294,7 +305,14 @@ export const App: React.FC = () => {
           <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-sm shadow-blue-500/50" />
           <h1 className="font-semibold text-sm tracking-wide text-neutral-100">Math Clipper Studio</h1>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={handleResetAudio}
+            className="text-[11px] px-2.5 py-1 rounded-md bg-[#12141a] hover:bg-[#181b22] text-neutral-400 hover:text-rose-400 border border-[#1f242d] transition-colors"
+            title="Remove current audio"
+          >
+            New Project / Change Audio
+          </button>
           <div className="text-[11px] font-mono text-neutral-400 bg-[#12141a] px-2.5 py-1 rounded-md border border-[#1f242d]">
             Project: {projectId}
           </div>
@@ -315,6 +333,7 @@ export const App: React.FC = () => {
             seekTime={seekTime}
             onSeekHandled={() => setSeekTime(null)}
             onPlayStateChange={setIsPlaying}
+            onResetAudio={handleResetAudio}
           />
 
           {/* Scenes Section Header */}

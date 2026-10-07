@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Play, Pause, Scissors, Volume2 } from 'lucide-react';
+import { Play, Pause, Scissors, Volume2, Upload, RotateCcw } from 'lucide-react';
 import { API_BASE } from '../services/api';
 
 interface AudioTimelineProps {
@@ -12,6 +12,7 @@ interface AudioTimelineProps {
   seekTime: number | null;
   onSeekHandled: () => void;
   onPlayStateChange?: (playing: boolean) => void;
+  onResetAudio?: () => void;
 }
 
 export const AudioTimeline: React.FC<AudioTimelineProps> = ({
@@ -24,6 +25,7 @@ export const AudioTimeline: React.FC<AudioTimelineProps> = ({
   seekTime,
   onSeekHandled,
   onPlayStateChange,
+  onResetAudio,
 }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -111,14 +113,28 @@ export const AudioTimeline: React.FC<AudioTimelineProps> = ({
         playsInline
       />
 
-      {/* Top Header: Play Button & Time Display */}
+      {/* Top Header: Play Button & Time Display & Remove Audio */}
       <div className="flex items-center justify-between mb-3">
-        <button
-          onClick={togglePlay}
-          className="flex items-center justify-center w-11 h-11 rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-md active:scale-95 transition-all"
-        >
-          {isPlaying ? <Pause size={19} /> : <Play size={19} className="ml-0.5" />}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={togglePlay}
+            className="flex items-center justify-center w-11 h-11 rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-md active:scale-95 transition-all"
+            title="Play / Pause"
+          >
+            {isPlaying ? <Pause size={19} /> : <Play size={19} className="ml-0.5" />}
+          </button>
+
+          {onResetAudio && (
+            <button
+              onClick={onResetAudio}
+              className="px-2.5 py-1.5 rounded-lg bg-[#181b22] hover:bg-[#232834] text-neutral-400 hover:text-rose-400 border border-[#2d3442] text-[11px] font-medium transition-all flex items-center gap-1.5"
+              title="Remove current audio and upload another"
+            >
+              <RotateCcw size={12} />
+              <span className="hidden sm:inline">Change Audio</span>
+            </button>
+          )}
+        </div>
 
         <div className="text-right font-mono">
           <div className="text-xl font-semibold text-neutral-100 tracking-tight">
