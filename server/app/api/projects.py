@@ -216,6 +216,55 @@ async def preview_scene(project_id: str, scene_idx: int):
         raise HTTPException(status_code=404, detail="Scene HTML not generated yet")
     return HTMLResponse(content=scene_file.read_text(encoding="utf-8"))
 
+@router.post("/{project_id}/scenes/{scene_idx}/upload")
+async def upload_custom_scene(
+    project_id: str,
+    scene_idx: int,
+    file: UploadFile = File(...)
+):
+    """Allows importing a custom HTML animation file directly for a specific scene/split."""
+    p_dir = get_project_dir(project_id)
+    scenes_dir = p_dir / "scenes"
+    scenes_dir.mkdir(exist_ok=True)
+    target_file = scenes_dir / f"scene_{scene_idx:02d}.html"
+
+    with open(target_file, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+
+    # Update status in timeline.json
+    timeline_file = p_dir / "timeline.json"
+    if timeline_file.exists():
+        with open(timeline_file, "r", encoding="utf-8") as f:
+            tl = json.load(f)
+        target = next((s for s in tl.get("scenes", []) if s.get("index") == scene_idx), None)
+        if target:
+            target["status"] = "ready"
+            target["html_file"] = f"scenes/scene_{scene_idx:02d}.html"
+            with open(timeline_file, "w", encoding="utf-8") as f:
+                json.dump(tl, f, indent=2)
+
+    await ws_manager.broadcast_to_project(project_id, {
+        "type": "opencode_complete",
+        "scene_index": scene_idx,
+        "success": True,
+        "imported": True
+    })
+
+    return {"status": "ok", "scene_index": scene_idx, "file": str(target_file)}
+
+@router.post("/{project_id}/open-folder")
+async def open_project_folder(project_id: str):
+    """Opens the project folder in the local desktop file explorer (Linux/xdg-open)."""
+    p_dir = get_project_dir(project_id)
+    scenes_dir = p_dir / "scenes"
+    scenes_dir.mkdir(exist_ok=True)
+    try:
+        import subprocess
+        subprocess.Popen(["xdg-open", str(scenes_dir)])
+        return {"status": "ok", "path": str(scenes_dir)}
+    except Exception as e:
+        return {"status": "error", "message": str(e), "path": str(scenes_dir)}
+
 @router.post("/{project_id}/render")
 async def start_render(project_id: str, background_tasks: BackgroundTasks):
     p_dir = get_project_dir(project_id)

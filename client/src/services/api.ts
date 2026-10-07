@@ -62,3 +62,21 @@ export async function triggerRender(projectId: string): Promise<void> {
   });
   if (!res.ok) throw new Error('Failed to start render');
 }
+
+export async function uploadCustomScene(projectId: string, sceneIdx: number, file: File): Promise<void> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch(`${API_BASE}/${projectId}/scenes/${sceneIdx}/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) throw new Error('Failed to upload custom scene');
+}
+
+export async function openProjectFolder(projectId: string): Promise<{ path: string }> {
+  const res = await fetch(`${API_BASE}/${projectId}/open-folder`, {
+    method: 'POST',
+  });
+  if (!res.ok) throw new Error('Failed to open folder');
+  return res.json();
+}

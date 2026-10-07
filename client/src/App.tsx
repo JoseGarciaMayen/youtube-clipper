@@ -5,9 +5,9 @@ import { SceneCard } from './components/SceneCard';
 import { EditSceneModal } from './components/EditSceneModal';
 import { RenderBar } from './components/RenderBar';
 import { TerminalPanel } from './components/TerminalPanel';
-import { fetchProject, updateTimeline, generateScene, triggerRender } from './services/api';
+import { fetchProject, updateTimeline, generateScene, triggerRender, uploadCustomScene, openProjectFolder } from './services/api';
 import { SceneItem, WebSocketEvent } from './types';
-import { Sparkles, Layers, Sliders, Eye, Maximize2, X } from 'lucide-react';
+import { Sparkles, Layers, Sliders, Eye, Maximize2, X, FolderOpen } from 'lucide-react';
 import { API_BASE } from './services/api';
 
 export const App: React.FC = () => {
@@ -261,6 +261,26 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleImportScene = async (sceneIdx: number, file: File) => {
+    if (!projectId) return;
+    try {
+      await uploadCustomScene(projectId, sceneIdx, file);
+      const updated = await fetchProject(projectId);
+      setScenes(updated.scenes);
+    } catch (err: any) {
+      alert(`Failed to import scene HTML: ${err.message}`);
+    }
+  };
+
+  const handleOpenFolder = async () => {
+    if (!projectId) return;
+    try {
+      await openProjectFolder(projectId);
+    } catch (err: any) {
+      alert(`Could not open folder: ${err.message}`);
+    }
+  };
+
   const handleGenerateAll = async () => {
     if (!projectId) return;
     for (const sc of scenes) {
@@ -334,6 +354,14 @@ export const App: React.FC = () => {
         </div>
         <div className="flex items-center gap-2.5">
           <button
+            onClick={handleOpenFolder}
+            className="text-[11px] px-2.5 py-1 rounded-md bg-[#12141a] hover:bg-[#181b22] text-neutral-300 hover:text-blue-400 border border-[#1f242d] transition-colors flex items-center gap-1.5"
+            title="Open scenes folder on disk in file explorer"
+          >
+            <FolderOpen size={12} className="text-blue-400" />
+            <span>Open Scenes Folder</span>
+          </button>
+          <button
             onClick={handleResetAudio}
             className="text-[11px] px-2.5 py-1 rounded-md bg-[#12141a] hover:bg-[#181b22] text-neutral-400 hover:text-rose-400 border border-[#1f242d] transition-colors"
             title="Remove current audio"
@@ -405,6 +433,7 @@ export const App: React.FC = () => {
                     onDeleteScene={handleDeleteScene}
                     onUpdate={handleUpdateScene}
                     onGenerate={handleGenerate}
+                    onImportScene={handleImportScene}
                   />
                 </div>
               );

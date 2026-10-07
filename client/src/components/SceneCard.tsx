@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Mic, MicOff, Sparkles, RefreshCw, Eye, Check, AlertCircle, Play, Pause, ChevronDown, ChevronUp, Edit3, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Mic, MicOff, Sparkles, RefreshCw, Eye, Check, AlertCircle, Play, Pause, ChevronDown, ChevronUp, Edit3, Trash2, FileUp } from 'lucide-react';
 import { SceneItem } from '../types';
 import { API_BASE } from '../services/api';
 
@@ -14,6 +14,7 @@ interface SceneCardProps {
   onDeleteScene: (sceneIndex: number) => void;
   onUpdate: (updated: SceneItem) => void;
   onGenerate: (sceneIdx: number, refinement?: string) => void;
+  onImportScene?: (sceneIdx: number, file: File) => void;
 }
 
 export const SceneCard: React.FC<SceneCardProps> = ({
@@ -73,6 +74,15 @@ export const SceneCard: React.FC<SceneCardProps> = ({
     };
 
     recognition.start();
+  };
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onImportScene) {
+      onImportScene(scene.index, file);
+    }
   };
 
   const statusIndicators = {
@@ -188,6 +198,22 @@ export const SceneCard: React.FC<SceneCardProps> = ({
           title="Dictate visual prompt"
         >
           {isListening && activeSpeechField === 'visual' ? <MicOff size={13} /> : <Mic size={13} />}
+        </button>
+
+        {/* Import custom HTML file for this split */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".html,.htm"
+          onChange={handleFileChange}
+          className="hidden"
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="p-1.5 rounded-xl bg-[#090a0f] hover:bg-[#181b22] text-neutral-400 hover:text-blue-400 border border-[#1f242d] text-xs transition-all"
+          title="Import custom HTML animation for this scene"
+        >
+          <FileUp size={13} />
         </button>
 
         <button
