@@ -14,6 +14,7 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 700,
     title: 'Math Clipper Studio',
+    icon: path.join(__dirname, '../icon.png'),
     backgroundColor: '#090a0f',
     webPreferences: {
       nodeIntegration: false,
