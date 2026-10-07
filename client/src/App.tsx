@@ -44,6 +44,8 @@ export const App: React.FC = () => {
       const wsProto = apiBase.startsWith('https') ? 'wss:' : 'ws:';
       const host = apiBase.replace(/^https?:\/\//, '');
       wsUrl = `${wsProto}//${host}/api/projects/ws/${projectId}`;
+    } else if (typeof window !== 'undefined' && (window.location.protocol === 'file:' || (window as any).electronAPI)) {
+      wsUrl = `ws://127.0.0.1:8080/api/projects/ws/${projectId}`;
     } else {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       wsUrl = `${protocol}//${window.location.host}/api/projects/ws/${projectId}`;

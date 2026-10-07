@@ -2,11 +2,13 @@
   "name": "youtube-math-clipper-client",
   "private": true,
   "version": "1.0.0",
-  "type": "module",
+  "main": "electron.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "desktop": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "desktop:dist": "vite build && electron ."
   },
   "dependencies": {
     "lucide-react": "^0.460.0",
@@ -18,9 +20,13 @@
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
     "autoprefixer": "^10.4.20",
+    "concurrently": "^10.0.5",
+    "electron": "^44.6.0",
+    "electron-builder": "^26.15.3",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.15",
     "typescript": "~5.6.2",
-    "vite": "^5.4.10"
+    "vite": "^5.4.10",
+    "wait-on": "^9.5.1"
   }
 }

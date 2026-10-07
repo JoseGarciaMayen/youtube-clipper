@@ -1,5 +1,15 @@
 import { ProjectData, SceneItem } from '../types';
-export const API_BASE = (import.meta.env.VITE_API_BASE_URL || '') + '/api/projects';
+
+const getBaseUrl = () => {
+  if (import.meta.env.VITE_API_BASE_URL) return import.meta.env.VITE_API_BASE_URL;
+  // If running inside Electron / file:// protocol, target local backend on 8080
+  if (typeof window !== 'undefined' && (window.location.protocol === 'file:' || (window as any).electronAPI)) {
+    return 'http://127.0.0.1:8080';
+  }
+  return '';
+};
+
+export const API_BASE = `${getBaseUrl()}/api/projects`;
 
 export async function createProject(audioFile: File): Promise<{ project_id: string; audio_duration: number }> {
   const formData = new FormData();
