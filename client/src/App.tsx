@@ -99,23 +99,30 @@ export const App: React.FC = () => {
     };
   }, [projectId]);
 
-  // Load project if ID is stored in URL
+  // Load project if ID is stored in URL or localStorage
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const pid = params.get('project');
+    const pid = params.get('project') || localStorage.getItem('math_clipper_active_project');
     if (pid) {
+      if (!params.get('project')) {
+        window.history.replaceState({}, '', `?project=${pid}`);
+      }
       fetchProject(pid).then((data) => {
         setProjectId(data.project_id);
+        localStorage.setItem('math_clipper_active_project', data.project_id);
         setAudioDuration(data.audio_duration);
         setScenes(data.scenes || []);
         setHasRenderedVideo(!!data.has_rendered_video);
-      }).catch(() => {});
+      }).catch(() => {
+        localStorage.removeItem('math_clipper_active_project');
+      });
     }
   }, []);
 
   const handleProjectCreated = (newId: string, duration: number) => {
     setProjectId(newId);
     setAudioDuration(duration);
+    localStorage.setItem('math_clipper_active_project', newId);
     window.history.pushState({}, '', `?project=${newId}`);
     
     const initialScene: SceneItem = {
@@ -287,6 +294,7 @@ export const App: React.FC = () => {
 
   const handleResetAudio = () => {
     if (confirm('Are you sure you want to remove the current audio and start over?')) {
+      localStorage.removeItem('math_clipper_active_project');
       setProjectId(null);
       setAudioDuration(0);
       setCurrentTime(0);
