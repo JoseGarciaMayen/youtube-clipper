@@ -117,10 +117,10 @@ export const App: React.FC = () => {
     };
   }, [projectId]);
 
-  // Load project if explicit ID is in URL
+  // Load project if explicit ID is in URL or saved in localStorage
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const pid = params.get('project');
+    const pid = params.get('project') || localStorage.getItem('clipper_studio_active_project') || localStorage.getItem('math_clipper_active_project');
     if (pid) {
       loadProjectById(pid);
     }
@@ -130,12 +130,13 @@ export const App: React.FC = () => {
     fetchProject(pid).then((data) => {
       setProjectId(data.project_id);
       setProjectName(data.name || data.project_id);
-      localStorage.setItem('math_clipper_active_project', data.project_id);
+      localStorage.setItem('clipper_studio_active_project', data.project_id);
       setAudioDuration(data.audio_duration);
       setScenes(data.scenes || []);
       setHasRenderedVideo(!!data.has_rendered_video);
       window.history.replaceState({}, '', `?project=${data.project_id}`);
     }).catch(() => {
+      localStorage.removeItem('clipper_studio_active_project');
       localStorage.removeItem('math_clipper_active_project');
       setProjectId(null);
     });
@@ -145,7 +146,7 @@ export const App: React.FC = () => {
     setProjectId(newId);
     setProjectName(name || newId);
     setAudioDuration(duration);
-    localStorage.setItem('math_clipper_active_project', newId);
+    localStorage.setItem('clipper_studio_active_project', newId);
     window.history.pushState({}, '', `?project=${newId}`);
     
     const initialScene: SceneItem = {
@@ -365,6 +366,7 @@ export const App: React.FC = () => {
   };
 
   const handleBackToProjects = () => {
+    localStorage.removeItem('clipper_studio_active_project');
     localStorage.removeItem('math_clipper_active_project');
     setProjectId(null);
     setProjectName('');
@@ -439,7 +441,7 @@ export const App: React.FC = () => {
           ) : (
             <div className="flex items-baseline gap-2 group">
               <h1 className="font-semibold text-sm tracking-wide text-neutral-100">
-                {projectName || 'Math Clipper Studio'}
+                {projectName || 'ClipperStudio'}
               </h1>
               <button
                 onClick={handleStartRename}

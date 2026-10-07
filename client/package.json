@@ -1,5 +1,5 @@
 {
-  "name": "youtube-math-clipper-client",
+  "name": "clipper-studio-client",
   "private": true,
   "version": "1.0.0",
   "main": "electron.js",

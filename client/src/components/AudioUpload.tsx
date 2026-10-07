@@ -35,10 +35,10 @@ export const AudioUpload: React.FC<AudioUploadProps> = ({ onProjectCreated }) =>
         </div>
 
         <h1 className="text-xl font-bold text-neutral-100 mb-1.5">
-          Math Video Clipper
+          ClipperStudio
         </h1>
         <p className="text-xs text-neutral-400 mb-6 max-w-xs">
-          Upload audio to start real-time timeline splitting and generating synchronized math animations.
+          Upload audio to start real-time timeline splitting and generating synchronized animations.
         </p>
 
         {error && (

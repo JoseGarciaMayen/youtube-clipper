@@ -5,11 +5,11 @@ from pathlib import Path
 from server.app.config import OPENCODE_BIN
 from server.app.websocket_manager import ws_manager
 
-SYSTEM_MATH_RULES = """
+SYSTEM_ANIMATION_RULES = """
 CRITICAL SPECIFICATIONS FOR THIS HTML ANIMATION:
 1. Target Resolution: 1920x1080 (Full HD, 16:9).
 2. Canvas/Container: Center perfectly, fill viewport, background must strictly be #0b0f19 (deep navy/slate dark theme).
-3. Visual Aesthetic: Modern high-end educational math visual (similar to 3Blue1Brown/Manim style). Use bright glowing mathematical accents: cyan (#06b6d4 / #22d3ee), amber/gold (#f59e0b), emerald green (#10b981), crisp white (#f8fafc) and subtle grid lines (#1e293b).
+3. Visual Aesthetic: Modern high-end conceptual visual style (inspired by 3Blue1Brown/Manim motion design). Use bright glowing visual accents: cyan (#06b6d4 / #22d3ee), amber/gold (#f59e0b), emerald green (#10b981), crisp white (#f8fafc) and subtle grid/structural lines (#1e293b).
 4. Timing and Behavior:
    - Total scene animation duration: EXACTLY {duration:.2f} seconds.
    - The animation MUST start automatically on page load.
@@ -25,7 +25,7 @@ def build_scene_prompt(project_dir: Path, scene_idx: int, duration: float, promp
     
     if refinement and existing_code:
         return f"""
-You are refining an existing HTML math animation file `{abs_scene_file}`.
+You are refining an existing HTML animation file `{abs_scene_file}`.
 
 CURRENT CODE:
 ```html
@@ -48,7 +48,7 @@ Ensure:
 """
 
     return f"""
-Create a pedagogical, visually captivating math/logic animation file `{abs_scene_file}`.
+Create a pedagogical, visually captivating animation file `{abs_scene_file}`.
 
 SCENE CONTEXT:
 - Scene Number: #{scene_idx}
@@ -56,7 +56,7 @@ SCENE CONTEXT:
 - Narration / Spoken audio cue: "{prompt_voice}"
 - Visual Instruction: "{prompt_visual}"
 
-{SYSTEM_MATH_RULES.format(duration=duration)}
+{SYSTEM_ANIMATION_RULES.format(duration=duration)}
 
 TASK:
 Generate the complete HTML code and save it directly to `{abs_scene_file}`.
@@ -69,7 +69,7 @@ def build_review_prompt(project_dir: Path, scene_idx: int, duration: float, prom
     
     return f"""
 You are the Lead Visual Reviewer and Quality Assurance Art Director.
-You are critically reviewing and approving the generated HTML math animation file `{abs_scene_file}` for Scene #{scene_idx}.
+You are critically reviewing and approving the generated HTML animation file `{abs_scene_file}` for Scene #{scene_idx}.
 
 SCENE CONTEXT & CRITERIA:
 - Scene Index: #{scene_idx}
@@ -78,7 +78,7 @@ SCENE CONTEXT & CRITERIA:
 - Visual Instruction Directive: "{prompt_visual}"
 - Dark Theme Requirement: Background strictly #0b0f19, canvas centered 1920x1080 (16:9).
 - Freeze-Frame Requirement: Animation MUST progress smoothly and FREEZE completely when elapsed time reaches {duration:.2f} seconds. No resetting or infinite animation loops.
-- Mathematical Aesthetics: 3Blue1Brown/Manim style. Crisp typography, glowing mathematical elements, vibrant palettes (cyan #06b6d4, gold #f59e0b, emerald #10b981).
+- Visual Aesthetics: Motion design aesthetic. Crisp typography, glowing visual elements, vibrant palettes (cyan #06b6d4, gold #f59e0b, emerald #10b981).
 
 CURRENT GENERATED CODE IN `{abs_scene_file}`:
 ```html

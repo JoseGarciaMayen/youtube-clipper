@@ -7,8 +7,8 @@ from server.app.api.projects import router as projects_router
 from server.app.config import BASE_DIR
 
 app = FastAPI(
-    title="YouTube Math Clipper Suite API",
-    description="Backend API for orchestrating math video production, OpenCode generation, and Puppeteer rendering",
+    title="ClipperStudio API",
+    description="Backend API for orchestrating video production, OpenCode generation, and Puppeteer rendering",
     version="1.0.0"
 )
 
@@ -25,7 +25,7 @@ app.include_router(projects_router)
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "service": "youtube-clipper-backend"}
+    return {"status": "ok", "service": "clipper-studio-backend"}
 
 # Mount client dist if built
 dist_dir = BASE_DIR / "client" / "dist"

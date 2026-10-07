@@ -221,7 +221,7 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({
         <div className="flex items-center gap-3">
           <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-sm shadow-blue-500/80 animate-pulse" />
           <h2 className="text-sm font-semibold text-white tracking-wide">
-            {projectName || 'Math Clipper Studio'}
+            {projectName || 'ClipperStudio'}
           </h2>
           {activeScene && (
             <div className="flex items-center gap-2 pl-2 border-l border-white/20">

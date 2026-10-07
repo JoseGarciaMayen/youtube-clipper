@@ -119,7 +119,7 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
               <Sparkles size={20} />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-neutral-100 tracking-wide">Math Clipper Desktop Studio</h1>
+              <h1 className="text-lg font-bold text-neutral-100 tracking-wide">ClipperStudio</h1>
               <p className="text-xs text-neutral-400">Select an existing project or create a new audio timeline</p>
             </div>
           </div>

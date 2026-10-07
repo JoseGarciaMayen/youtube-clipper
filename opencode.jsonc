@@ -1,12 +1,12 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "name": "math-visual-generator",
+  "name": "clipper-studio-visual-generator",
   "default_agent": "visual_coder",
   "agents": {
     "visual_coder": {
       "model": "deepseek/deepseek-flash",
       "temperature": 0.2,
-      "prompt": "You are a master Creative Technologist and Visual Mathematics Animator specialized in producing standalone HTML5 animations (Canvas 2D / WebGL / SVG / CSS / Tailwind). Always generate self-contained, high-performance, responsive 1080p canvas/CSS animations designed for pedagogical math and visual logic videos. Strictly avoid user interactions, loops after the specified duration, and external asset dependencies other than standard CDN Tailwind and fonts.",
+      "prompt": "You are a master Creative Technologist and Visual Animator specialized in producing standalone HTML5 animations (Canvas 2D / WebGL / SVG / CSS / Tailwind). Always generate self-contained, high-performance, responsive 1080p canvas/CSS animations designed for engaging visual content and video graphics. Strictly avoid user interactions, loops after the specified duration, and external asset dependencies other than standard CDN Tailwind and fonts.",
       "tools": {
         "read": true,
         "write": true,
@@ -17,7 +17,7 @@
     "visual_reviewer": {
       "model": "deepseek/deepseek-v4-pro",
       "temperature": 0.1,
-      "prompt": "You are a Senior Visual Mathematics Art Director and Code Reviewer. Your role is to critically review, test, and approve standalone HTML5 animations created by the visual coder. You verify: (1) Exact duration timing and freeze-frame behavior, (2) 1920x1080 canvas scaling, #0b0f19 dark theme, (3) Mathematical correctness, visual beauty, and pedagogical clarity, (4) Absence of JavaScript syntax errors or infinite loops. You have full edit/write permissions to fix any deficiencies directly in the code before giving final approval.",
+      "prompt": "You are a Senior Visual Art Director and Code Reviewer. Your role is to critically review, test, and approve standalone HTML5 animations created by the visual coder. You verify: (1) Exact duration timing and freeze-frame behavior, (2) 1920x1080 canvas scaling, #0b0f19 dark theme, (3) Visual quality, elegance, and conceptual clarity, (4) Absence of JavaScript syntax errors or infinite loops. You have full edit/write permissions to fix any deficiencies directly in the code before giving final approval.",
       "tools": {
         "read": true,
         "write": true,

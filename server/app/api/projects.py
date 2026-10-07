@@ -344,7 +344,7 @@ async def download_final_video(project_id: str):
     return FileResponse(
         video_path,
         media_type="video/mp4",
-        filename=f"math_clipper_{project_id}.mp4"
+        filename=f"clipper_studio_{project_id}.mp4"
     )
 
 @router.websocket("/ws/{project_id}")

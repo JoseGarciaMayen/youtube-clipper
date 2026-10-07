@@ -1,5 +1,5 @@
 {
-  "name": "math-clipper-renderer",
+  "name": "clipper-studio-renderer",
   "version": "1.0.0",
   "type": "module",
   "description": "Headless Puppeteer & FFmpeg 60fps rendering pipeline",

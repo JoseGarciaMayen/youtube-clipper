@@ -1,6 +1,6 @@
-# Math Video Clipper Suite 🎬📐
+# ClipperStudio 🎬✨
 
-Una suite Full-Stack mobile-first para orquestar la producción de vídeos pedagógicos de matemáticas y lógica visual, sincronizando locuciones en audio con animaciones HTML5 (Canvas/Tailwind) generadas por IA mediante **OpenCode CLI** y renderizadas a 60 FPS con **Puppeteer + FFmpeg**.
+Estudio de escritorio y orquestación para la producción de vídeos y animación visual, sincronizando locuciones en audio con animaciones HTML5 (Canvas/Tailwind) generadas por IA mediante **OpenCode CLI** y renderizadas a 60 FPS con **Puppeteer + FFmpeg**.
 
 ---
 
@@ -8,15 +8,16 @@ Una suite Full-Stack mobile-first para orquestar la producción de vídeos pedag
 
 ```
 youtube-clipper/
-├── client/                     # Frontend Mobile-First PWA (React + Tailwind CSS + Lucide)
-│   ├── src/components/         # AudioTimeline (Tap-to-split), SceneCard, RenderBar, AudioUpload
+├── client/                     # Frontend Desktop Studio (React + Tailwind CSS + Lucide + Electron)
+│   ├── src/components/         # AudioTimeline, SceneCard, FullscreenPlayer, RenderBar, ProjectSelector
 │   └── src/services/           # Cliente HTTP y WebSocket
 ├── server/                     # Backend Asíncrono (FastAPI + WebSockets)
 │   ├── app/api/                # Endpoints REST para proyectos, timelines y escenas
-│   ├── app/opencode_service.py # Orquestación de subprocesos OpenCode CLI
+│   ├── app/opencode_service.py # Orquestación multi-agente con OpenCode CLI (Generador + Revisor DeepSeek)
 │   └── app/render_service.py   # Orquestador del pipeline Puppeteer + ffmpeg
 ├── scripts/render/             # Pipeline Headless 60 FPS (Puppeteer frame-by-frame + FFmpeg)
 ├── projects/                   # Almacenamiento local de proyectos generados
+├── launch-studio.sh            # Lanzador de la app de escritorio
 └── opencode.jsonc              # Configuración de subagentes para OpenCode CLI
 ```
 
@@ -125,24 +126,26 @@ sudo tailscale up
 Para mantener la aplicación siempre activa en tu máquina virtual:
 
 ```ini
-# /etc/systemd/system/math-clipper.service
+# ~/.config/systemd/user/clipper-studio.service
 [Unit]
-Description=Math Video Clipper Suite
+Description=ClipperStudio Backend Service (FastAPI)
 After=network.target
 
 [Service]
+Type=simple
 User=jose
 WorkingDirectory=/home/jose/Proyectos/youtube-clipper
 Environment="PATH=/home/jose/Proyectos/youtube-clipper/.venv/bin:/home/jose/.opencode/bin:/usr/local/bin:/usr/bin"
-ExecStart=/home/jose/Proyectos/youtube-clipper/.venv/bin/uvicorn server.app.main:app --host 0.0.0.0 --port 8000
-Restart=always
+ExecStart=/home/jose/Proyectos/youtube-clipper/.venv/bin/uvicorn server.app.main:app --host 0.0.0.0 --port 8080
+Restart=on-failure
+RestartSec=3s
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
 ```
 
 Habilita e inicia el servicio:
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now math-clipper
+systemctl --user daemon-reload
+systemctl --user enable --now clipper-studio
 ```
