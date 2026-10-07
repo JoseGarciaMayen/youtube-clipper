@@ -29,7 +29,6 @@ export const AudioTimeline: React.FC<AudioTimelineProps> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [isTapPressed, setIsTapPressed] = useState(false);
 
-  // Sync seek requests from scene clicks
   useEffect(() => {
     if (seekTime !== null && audioRef.current) {
       audioRef.current.currentTime = seekTime;
@@ -104,7 +103,7 @@ export const AudioTimeline: React.FC<AudioTimelineProps> = ({
   };
 
   return (
-    <div className="flex flex-col bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 backdrop-blur-sm">
+    <div className="flex flex-col bg-[#12141a] border border-[#1f242d] rounded-2xl p-4 shadow-xl">
       <audio
         ref={audioRef}
         src={`${API_BASE}/${projectId}/audio`}
@@ -116,33 +115,33 @@ export const AudioTimeline: React.FC<AudioTimelineProps> = ({
       <div className="flex items-center justify-between mb-3">
         <button
           onClick={togglePlay}
-          className="flex items-center justify-center w-11 h-11 rounded-full bg-cyan-400 hover:bg-cyan-300 text-slate-950 shadow-md shadow-cyan-500/10 active:scale-95 transition-all"
+          className="flex items-center justify-center w-11 h-11 rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-md active:scale-95 transition-all"
         >
-          {isPlaying ? <Pause size={20} /> : <Play size={20} className="ml-0.5" />}
+          {isPlaying ? <Pause size={19} /> : <Play size={19} className="ml-0.5" />}
         </button>
 
         <div className="text-right font-mono">
-          <div className="text-xl font-semibold text-slate-100 tracking-tight">
+          <div className="text-xl font-semibold text-neutral-100 tracking-tight">
             {formatTime(currentTime)}
           </div>
-          <div className="text-[11px] text-slate-500">
+          <div className="text-[11px] text-neutral-400">
             Total {formatTime(duration)}
           </div>
         </div>
       </div>
 
-      {/* Minimal Scrubber Bar */}
+      {/* Scrubber Bar */}
       <div className="relative w-full my-2">
-        <div className="relative h-3 bg-slate-950 rounded-full overflow-hidden border border-slate-800 flex items-center">
+        <div className="relative h-2.5 bg-[#090a0f] rounded-full overflow-hidden border border-[#1f242d] flex items-center">
           <div
-            className="h-full bg-cyan-500 transition-all duration-75"
+            className="h-full bg-blue-500 transition-all duration-75"
             style={{ width: `${(currentTime / Math.max(duration, 0.1)) * 100}%` }}
           />
 
           {splits.map((s, idx) => (
             <div
               key={idx}
-              className="absolute top-0 bottom-0 w-[2px] bg-amber-400 z-10"
+              className="absolute top-0 bottom-0 w-[2px] bg-neutral-400 z-10"
               style={{ left: `${(s / Math.max(duration, 0.1)) * 100}%` }}
             />
           ))}
@@ -163,13 +162,13 @@ export const AudioTimeline: React.FC<AudioTimelineProps> = ({
       <button
         onTouchStart={handleTapToSplit}
         onClick={handleTapToSplit}
-        className={`w-full py-4 mt-2 rounded-xl font-bold text-sm tracking-widest uppercase transition-all duration-100 flex items-center justify-center gap-2.5 ${
+        className={`w-full py-3.5 mt-2 rounded-xl font-bold text-xs tracking-widest uppercase transition-all duration-100 flex items-center justify-center gap-2 ${
           isTapPressed
-            ? 'scale-[0.98] bg-amber-400 text-slate-950'
-            : 'bg-slate-800 hover:bg-slate-700 active:bg-cyan-400 active:text-slate-950 text-slate-200 border border-slate-700/60'
+            ? 'scale-[0.98] bg-blue-600 text-white'
+            : 'bg-[#181b22] hover:bg-[#1f242d] text-neutral-200 border border-[#2d3442]'
         }`}
       >
-        <Scissors size={18} className={isTapPressed ? 'rotate-45 text-slate-950' : 'text-cyan-400'} />
+        <Scissors size={15} className={isTapPressed ? 'rotate-45 text-white' : 'text-blue-400'} />
         <span>Tap to Split Scene</span>
       </button>
     </div>

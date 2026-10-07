@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Mic, MicOff, Sparkles, RefreshCw, Eye, Check, AlertCircle, Play, Pause, ChevronDown, ChevronUp } from 'lucide-react';
+import { Mic, MicOff, Sparkles, RefreshCw, Eye, Check, AlertCircle, Play, Pause, ChevronDown, ChevronUp, Edit3, Trash2 } from 'lucide-react';
 import { SceneItem } from '../types';
 import { API_BASE } from '../services/api';
 
 interface SceneCardProps {
   scene: SceneItem;
   projectId: string;
+  isLastScene: boolean;
+  canDelete: boolean;
   isPlayingThisScene: boolean;
   onPlayScene: (start: number) => void;
+  onEditScene: (scene: SceneItem) => void;
+  onDeleteScene: (sceneIndex: number) => void;
   onUpdate: (updated: SceneItem) => void;
   onGenerate: (sceneIdx: number, refinement?: string) => void;
 }
@@ -15,8 +19,12 @@ interface SceneCardProps {
 export const SceneCard: React.FC<SceneCardProps> = ({
   scene,
   projectId,
+  isLastScene,
+  canDelete,
   isPlayingThisScene,
   onPlayScene,
+  onEditScene,
+  onDeleteScene,
   onUpdate,
   onGenerate,
 }) => {
@@ -68,119 +76,137 @@ export const SceneCard: React.FC<SceneCardProps> = ({
   };
 
   const statusIndicators = {
-    pending: <span className="w-2 h-2 rounded-full bg-slate-600" title="Pending" />,
-    generating: <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" title="Generating" />,
-    ready: <span className="w-2 h-2 rounded-full bg-emerald-400" title="Ready" />,
-    error: <span className="w-2 h-2 rounded-full bg-rose-500" title="Error" />,
+    pending: <span className="w-1.5 h-1.5 rounded-full bg-neutral-600" title="Pending" />,
+    generating: <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping" title="Generating" />,
+    ready: <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" title="Ready" />,
+    error: <span className="w-1.5 h-1.5 rounded-full bg-rose-500" title="Error" />,
   };
 
   return (
-    <div className={`bg-slate-900/40 border rounded-2xl p-3.5 transition-all backdrop-blur-sm ${
-      isPlayingThisScene ? 'border-cyan-500/70 ring-1 ring-cyan-500/30' : 'border-slate-800/80 hover:border-slate-700'
+    <div className={`bg-[#12141a] border rounded-2xl p-3 transition-all ${
+      isPlayingThisScene ? 'border-blue-500/80 ring-1 ring-blue-500/30' : 'border-[#1f242d] hover:border-[#2d3442]'
     }`}>
-      {/* Minimal Header */}
-      <div className="flex items-center justify-between gap-3">
-        {/* Left: Play Scene Audio Button & Tag */}
-        <div className="flex items-center gap-2.5">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          {/* Play snippet audio button */}
           <button
             onClick={() => onPlayScene(scene.start)}
-            className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+            className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
               isPlayingThisScene
-                ? 'bg-cyan-400 text-slate-950 scale-105 shadow-sm shadow-cyan-400/20'
-                : 'bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700'
+                ? 'bg-blue-600 text-white'
+                : 'bg-[#181b22] text-neutral-300 hover:text-white hover:bg-[#232834]'
             }`}
-            title="Listen to this clipped audio segment"
+            title="Listen to this clip"
           >
-            {isPlayingThisScene ? <Pause size={14} /> : <Play size={14} className="ml-0.5" />}
+            {isPlayingThisScene ? <Pause size={12} /> : <Play size={12} className="ml-0.5" />}
           </button>
 
           <div className="flex items-baseline gap-1.5 font-mono">
-            <span className="text-sm font-bold text-slate-200">#{scene.index.toString().padStart(2, '0')}</span>
-            <span className="text-xs text-slate-400">
+            <span className="text-xs font-bold text-neutral-200">#{scene.index.toString().padStart(2, '0')}</span>
+            <span className="text-[11px] text-neutral-400">
               {scene.start.toFixed(1)}s - {scene.end.toFixed(1)}s
             </span>
-            <span className="text-xs text-amber-400/90 font-medium">({scene.duration.toFixed(1)}s)</span>
+            <span className="text-[11px] text-blue-400 font-semibold">({scene.duration.toFixed(1)}s)</span>
           </div>
         </div>
 
-        {/* Right: Status badge & Toggle Details */}
-        <div className="flex items-center gap-2">
+        {/* Right action icons: Edit modal, Delete, Details */}
+        <div className="flex items-center gap-1">
           {statusIndicators[scene.status]}
+
+          <button
+            onClick={() => onEditScene(scene)}
+            className="p-1 rounded-md text-neutral-400 hover:text-blue-400 transition-colors"
+            title="Edit & fine-tune timestamps with audio loop"
+          >
+            <Edit3 size={13} />
+          </button>
+
+          {canDelete && isLastScene && (
+            <button
+              onClick={() => onDeleteScene(scene.index)}
+              className="p-1 rounded-md text-neutral-400 hover:text-rose-400 transition-colors"
+              title="Delete scene (undo split)"
+            >
+              <Trash2 size={13} />
+            </button>
+          )}
+
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-200"
+            className="p-1 rounded-md text-neutral-400 hover:text-neutral-200"
           >
-            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
         </div>
       </div>
 
-      {/* Main Visual Prompt (Always visible in 1 clean line or expanded) */}
-      <div className="mt-2.5 flex items-center gap-2">
+      {/* Main Single Row Prompt */}
+      <div className="mt-2.5 flex items-center gap-1.5">
         <input
           type="text"
           value={scene.prompt_visual}
-          placeholder="Visual prompt: e.g. 3D hyperbolic graph..."
+          placeholder="Visual prompt..."
           onChange={(e) => onUpdate({ ...scene, prompt_visual: e.target.value })}
-          className="flex-1 bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/80"
+          className="flex-1 bg-[#090a0f] border border-[#1f242d] rounded-xl px-2.5 py-1.5 text-xs text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-blue-500"
         />
 
         <button
           onClick={() => toggleSpeechRecognition('visual')}
-          className={`p-2 rounded-xl border text-xs transition-all ${
+          className={`p-1.5 rounded-xl border text-xs transition-all ${
             isListening && activeSpeechField === 'visual'
-              ? 'bg-rose-500/20 text-rose-400 border-rose-500 animate-pulse'
-              : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-cyan-400'
+              ? 'bg-rose-500/20 text-rose-400 border-rose-500'
+              : 'bg-[#090a0f] border-[#1f242d] text-neutral-400 hover:text-blue-400'
           }`}
-          title="Dictate visual prompt"
+          title="Dictate"
         >
-          {isListening && activeSpeechField === 'visual' ? <MicOff size={14} /> : <Mic size={14} />}
+          {isListening && activeSpeechField === 'visual' ? <MicOff size={13} /> : <Mic size={13} />}
         </button>
 
         <button
           onClick={() => onGenerate(scene.index)}
           disabled={scene.status === 'generating'}
-          className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-cyan-500 active:text-slate-950 text-cyan-400 font-medium text-xs border border-slate-700/60 disabled:opacity-50 transition-all flex items-center gap-1.5"
+          className="px-2.5 py-1.5 rounded-xl bg-[#181b22] hover:bg-[#232834] active:bg-blue-600 active:text-white text-blue-400 font-medium text-xs border border-[#2d3442] disabled:opacity-50 transition-all flex items-center gap-1"
           title="Generate with OpenCode"
         >
-          <Sparkles size={13} />
-          <span className="hidden sm:inline">{scene.status === 'ready' ? 'Redo' : 'Gen'}</span>
+          <Sparkles size={12} />
+          <span>{scene.status === 'ready' ? 'Redo' : 'Gen'}</span>
         </button>
 
         {scene.status === 'ready' && (
           <button
             onClick={() => setShowPreview(!showPreview)}
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 text-xs transition-all"
+            className="p-1.5 rounded-xl bg-[#181b22] hover:bg-[#232834] text-neutral-300 border border-[#2d3442] text-xs transition-all"
             title="Preview animation"
           >
-            <Eye size={14} />
+            <Eye size={13} />
           </button>
         )}
       </div>
 
-      {/* Expanded Details: Narration cue & Refinement */}
+      {/* Expanded Details */}
       {isExpanded && (
-        <div className="mt-3 pt-3 border-t border-slate-800/60 flex flex-col gap-2.5 text-xs">
-          {/* Narration Cue */}
+        <div className="mt-2.5 pt-2.5 border-t border-[#1f242d] flex flex-col gap-2 text-xs">
           <div className="flex flex-col gap-1">
-            <span className="text-[11px] text-slate-500 font-medium">Audio Narration Cue</span>
-            <div className="flex gap-2">
+            <span className="text-[11px] text-neutral-500">Audio Narration Cue</span>
+            <div className="flex gap-1.5">
               <input
                 type="text"
                 value={scene.prompt_voice}
-                placeholder="Spoken words in this clip..."
+                placeholder="Spoken words in this segment..."
                 onChange={(e) => onUpdate({ ...scene, prompt_voice: e.target.value })}
-                className="flex-1 bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-1.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/80"
+                className="flex-1 bg-[#090a0f] border border-[#1f242d] rounded-xl px-2.5 py-1 text-xs text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-blue-500"
               />
               <button
                 onClick={() => toggleSpeechRecognition('voice')}
-                className={`p-2 rounded-xl border ${
+                className={`p-1.5 rounded-xl border ${
                   isListening && activeSpeechField === 'voice'
-                    ? 'bg-rose-500/20 text-rose-400 border-rose-500 animate-pulse'
-                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-cyan-400'
+                    ? 'bg-rose-500/20 text-rose-400 border-rose-500'
+                    : 'bg-[#090a0f] border-[#1f242d] text-neutral-400 hover:text-blue-400'
                 }`}
               >
-                {isListening && activeSpeechField === 'voice' ? <MicOff size={14} /> : <Mic size={14} />}
+                {isListening && activeSpeechField === 'voice' ? <MicOff size={13} /> : <Mic size={13} />}
               </button>
             </div>
           </div>
@@ -189,8 +215,8 @@ export const SceneCard: React.FC<SceneCardProps> = ({
 
       {/* Preview Section */}
       {showPreview && scene.status === 'ready' && (
-        <div className="mt-3 flex flex-col gap-2">
-          <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-slate-800 bg-black">
+        <div className="mt-2.5 flex flex-col gap-2">
+          <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-[#1f242d] bg-black">
             <iframe
               src={`${API_BASE}/${projectId}/scenes/${scene.index}/preview?t=${Date.now()}`}
               title={`Preview Scene ${scene.index}`}
@@ -199,13 +225,13 @@ export const SceneCard: React.FC<SceneCardProps> = ({
             />
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-1.5">
             <input
               type="text"
-              placeholder="Refine: Make wave curve faster..."
+              placeholder="Refine prompt..."
               value={refinementText}
               onChange={(e) => setRefinementText(e.target.value)}
-              className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-400"
+              className="flex-1 bg-[#090a0f] border border-[#1f242d] rounded-xl px-2.5 py-1 text-xs text-neutral-200 focus:outline-none focus:border-blue-500"
             />
             <button
               onClick={() => {
@@ -214,7 +240,7 @@ export const SceneCard: React.FC<SceneCardProps> = ({
                   setRefinementText('');
                 }
               }}
-              className="px-3 py-1.5 rounded-xl bg-amber-400 text-slate-950 font-semibold text-xs active:scale-95 transition-all"
+              className="px-2.5 py-1 rounded-xl bg-blue-600 text-white font-medium text-xs active:scale-95 transition-all"
             >
               Refine
             </button>
